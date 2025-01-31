@@ -1,9 +1,9 @@
-source "https://rubygems.org"
+# frozen_string_literal: true
 
-# to publish on github page
-gem 'github-pages', group: :jekyll_plugins
+source "https://rubygems.org"
 gem "liquid", ">= 4.0.4"
 gem 'webrick'
+gem 'tzinfo'
+gem 'tzinfo-data'
+gemspec
 
-# to publich without github page
-#gem "jekyll"
