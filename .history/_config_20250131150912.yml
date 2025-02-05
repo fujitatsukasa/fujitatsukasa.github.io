@@ -1,0 +1,188 @@
+###########################################################
+### Welcome to Beautiful Jekyll!
+### This config file is meant for settings that affect your entire website.
+###########################################################
+
+############################
+# --- Required options --- #
+############################
+
+title: ゆっくりまとめプロセッサー
+author: "藤田　僚(FUJITA TSUKASA)"
+
+###############################################
+# --- List of links in the navigation bar --- #
+###############################################
+
+navbar-links:
+  About Me: "aboutme"
+  Resources:
+    - Beautiful Jekyll: "https://beautifuljekyll.com"
+    - Learn markdown: "https://www.markdowntutorial.com/"
+  Author's home: "https://fujitatsukasa.github.io"
+
+################
+# --- Logo --- #
+################
+
+avatar: "/assets/img/avatar-icon.png"
+round-avatar: true
+#title-img: /path/to/image
+
+#####################################
+# --- Footer social media links --- #
+#####################################
+
+social-network-links:
+  email: "fujita.otm@gmail.com"
+  twitter: "OTM_corp"
+  rss: true
+  # 以下は不要であれば削除/コメントアウトのままでOK
+  # facebook: deanattali
+  # github: daattali
+  # patreon: DeanAttali
+  # youtube: "@daattali"
+  # whatsapp: 15551212
+
+rss-description: "「ゆっくりまとめプロセッサー」の公式サイトです。"
+
+###########################
+# --- General options --- #
+###########################
+
+share-links-active:
+  twitter: true
+  facebook: true
+  linkedin: true
+  vk: false
+
+url-pretty: "https://fujitatsukasa.github.io"
+title-on-all-pages: true
+excerpt_length: 50
+feed_show_excerpt: true
+feed_show_tags: true
+post_search: true
+edit_page_button: true
+navbar-var-length: false
+
+# If you want keywords for SEO, uncomment and edit below
+#keywords: "ゆっくり, まとめ, processor"
+
+######################################
+# --- Colours / background image --- #
+######################################
+
+page-col: "#FFFFFF"
+text-col: "#404040"
+link-col: "#008AFF"
+hover-col: "#0085A1"
+navbar-col: "#EAEAEA"
+navbar-text-col: "#404040"
+navbar-border-col: "#DDDDDD"
+footer-col: "#EAEAEA"
+footer-text-col: "#777777"
+footer-link-col: "#404040"
+footer-hover-col: "#0085A1"
+
+# You can set images instead of colours for navbar, footer, and page backgrounds
+#navbar-img: "/assets/img/bgimage.png"
+#footer-img: "/assets/img/bgimage.png"
+#page-img: "/assets/img/bgimage.png"
+
+#mobile-theme-col: "#0085A1"
+#site-css:
+#  - "/assets/css/custom-styles.css"
+#site-js:
+#  - "/assets/js/custom-script.js"
+
+#################################
+# --- Web Analytics Section --- #
+#################################
+
+# gtag: "G-XXXXXXXXXX"
+# cloudflare_analytics: ""
+# gtm: ""
+# matomo:
+#   site_id: "9"
+#   uri: "demo.wiki.pro"
+#   opt-out: true
+# google_analytics: "UA-XXXXXXXX-X"
+
+####################
+# --- Comments --- #
+####################
+
+# disqus: ""
+# fb_comment_id: ""
+# commentbox: ""
+# utterances:
+#   repository:
+#   issue-term: title
+#   theme: github-light
+#   label: blog-comments
+# staticman:
+#   repository :
+#   branch     : master
+#   endpoint   :
+#   reCaptcha:
+#     siteKey  :
+#     secret   :
+# giscus:
+#   hostname: giscus.app
+#   repository:
+#   repository-id:
+#   category: Announcements
+#   category-id:
+#   mapping: pathname
+#   reactions-enabled: 1
+#   emit-metadata: 0
+#   theme: light
+
+################
+# --- Misc --- #
+################
+
+date_format: "%B %-d, %Y"
+#fb_app_id: ""
+
+#################################################################################
+# --- You don't need to touch anything below here (but you can if you want) --- #
+#################################################################################
+
+timezone: "America/Toronto"
+markdown: kramdown
+highlighter: rouge
+permalink: /:year-:month-:day-:title/
+paginate: 5
+
+kramdown:
+  input: GFM
+
+defaults:
+  -
+    scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+      comments: true
+      social-share: true
+  -
+    scope:
+      path: ""
+    values:
+      layout: "page"
+
+exclude:
+  - CHANGELOG.md
+  - CNAME
+  - Gemfile
+  - Gemfile.lock
+  - LICENSE
+  - README.md
+  - screenshot.png
+  - docs/
+
+plugins:
+  - jekyll-paginate
+  - jekyll-sitemap

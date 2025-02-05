@@ -1,0 +1,35 @@
+/* custom-styles.css */
+
+/* 購入ボタンのスタイル調整 */
+#purchase-button {
+    background-color: #008AFF;
+    color: white;
+    padding: 15px 30px;
+    font-size: 18px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#purchase-button:hover {
+    background-color: #005f99;
+}
+
+/* フォーム要素のスタイル調整 */
+#purchase-form div {
+    margin-bottom: 15px;
+}
+
+#purchase-form label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+#purchase-form input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #CCCCCC;
+    border-radius: 4px;
+}

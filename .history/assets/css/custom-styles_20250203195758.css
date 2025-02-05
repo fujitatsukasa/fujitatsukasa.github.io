@@ -1,0 +1,164 @@
+/* custom-styles.css */
+
+/* 全体共通スタイル */
+.products-container {
+    margin-top: 20px;
+  }
+  
+  .product-card h2 {
+    font-size: 24px;
+    color: #333;
+    margin-bottom: 10px;
+  }
+  
+  .product-card p, .product-card ul {
+    font-size: 16px;
+    color: #555;
+  }
+  
+  /* パターン1: カードレイアウト（advanced クラス追加） */
+  .products-container.pattern1.advanced {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+  
+  .product-card {
+    background-color: #fff;
+    border: 2px solid #ccc;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+  }
+  
+  .product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.2);
+  }
+  
+  .product-card img {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+  }
+  
+  .description {
+    max-height: 150px;
+    overflow-y: auto;
+    margin: 15px 0;
+    padding-right: 10px;
+    border-top: 1px dashed #ddd;
+    padding-top: 10px;
+  }
+  
+  .purchase-details {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+  }
+  
+  .price {
+    font-size: 28px;
+    font-weight: bold;
+    color: #007BFF;
+  }
+  
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .form-group label {
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  
+  .form-group input[type="text"] {
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #aaa;
+    border-radius: 5px;
+    width: 200px;
+  }
+  
+  .btn {
+    padding: 12px 30px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .btn-primary {
+    background-color: #28a745;
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background-color: #218838;
+  }
+  
+  /* モーダルウィンドウ */
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background: rgba(0,0,0,0.6);
+  }
+  
+  .modal-content {
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 30px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+    border-radius: 10px;
+    position: relative;
+    animation: fadeIn 0.5s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .close {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+  }
+  
+  .close:hover {
+    color: #000;
+  }
+  
+  /* 共通エラーメッセージ */
+  .error-message {
+    color: red;
+    text-align: center;
+    margin-top: 20px;
+    display: none;
+  }k
+
+  /* Chatwork アイコンを適切な大きさに縮小し、中央配置 */
+.chatwork-icon {
+    width: 1em;         /* 他のアイコンと同じサイズに合わせる */
+    height: auto;       /* 縦横比を維持 */
+    display: block;     /* ブロック要素にして margin が有効になるように */
+    margin: 0 auto;     /* 横方向の中央揃え */
+  }

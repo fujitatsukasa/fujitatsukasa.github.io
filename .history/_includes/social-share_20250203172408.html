@@ -1,0 +1,66 @@
+<!-- Check if any share-links are active -->
+{% assign any-share-links = false %}
+{% for links in site.share-links-active %}
+  {% if links[1] == true %}
+    {% assign any-share-links = true %}
+  {% endif %}
+{% endfor %}
+
+{% if any-share-links %}
+<section id = "social-share-section">
+  <span class="sr-only">Share: </span>
+
+  {% if site.share-links-active.twitter %}
+    <a href="https://twitter.com/intent/tweet?text={{ page.title | strip_html | url_encode }}&url={{ page.url | absolute_url | url_encode }}"
+      class="btn btn-social-icon btn-twitter" title="Share on X (Twitter)">
+      <span class="fab fa-fw fa-x-twitter" aria-hidden="true"></span>
+      <span class="sr-only">X (Twitter)</span>
+    </a>
+  {% endif %}
+
+  {% if site.share-links-active.facebook %}
+    <a href="https://www.facebook.com/sharer/sharer.php?u={{ page.url | absolute_url | url_encode }}"
+      class="btn btn-social-icon btn-facebook" title="Share on Facebook">
+      <span class="fab fa-fw fa-facebook" aria-hidden="true"></span>
+      <span class="sr-only">Facebook</span>
+    </a>
+  {% endif %}
+
+  {% if site.share-links-active.linkedin %}
+    <a href="https://www.linkedin.com/shareArticle?mini=true&url={{ page.url | absolute_url | url_encode }}"
+      class="btn btn-social-icon btn-linkedin" title="Share on LinkedIn">
+      <span class="fab fa-fw fa-linkedin" aria-hidden="true"></span>
+      <span class="sr-only">LinkedIn</span>
+    </a>
+  {% endif %}
+
+  {% if site.share-links-active.vk %}
+    <a href="https://vk.com/share.php?url={{ page.url | absolute_url | url_encode }}"
+      class="btn btn-social-icon btn-vk" title="Share on VK">
+      <span class="fab fa-fw fa-vk" aria-hidden="true"></span>
+      <span class="sr-only">VK</span>
+    </a>
+  {% endif %}
+
+  {% if site.share-links-active.reddit %}
+    <a href="https://www.reddit.com/submit?url={{ page.url | absolute_url | url_encode }}"
+      class="btn btn-social-icon btn-reddit" title="Share on Reddit">
+      <span class="fab fa-fw fa-reddit" aria-hidden="true"></span>
+      <span class="sr-only">Reddit</span>
+    </a>
+  {% endif %}
+
+  {% if site.social-network-links.chatwork %}
+  <a href="https://go.chatwork.com/ja/lp/remarketing_06/slg/?utm_source=google&utm_medium=cpc&utm_campaign=AW_Chatwork_00_BrandBroadMatch&adcode=onad_glsm_cp_brand_broadmatch_68_2407_remark06_3minutes_chatwork&saf_src=google_g&saf_pt=&saf_kw=chatwork&saf_dv=&saf_cam=21177721860&saf_grp=160402116225&saf_ad=706786100061&account_id=9571089274&saf_acc=9571089274&campaignid=21177721860&adgroupid=160402116225&adid=706786100061&gad_source=1&gclid=CjwKCAiA74G9BhAEEiwA8kNfpQ-6LnbxDp8mFw3OyqYf90KINR-mzQKv6g3HkIAsf8k5lj5VJGM0TRoCv9EQAvD_BwE"
+    class="btn btn-social-icon btn-chatwork" title="Share on Chatwork">
+    <span class="fab fa-fw fa-chatwork" aria-hidden="true"></span>
+    <span class="sr-only">Chatwork</span>
+  </a>
+  {% endif %}
+
+
+
+
+</section>
+
+{% endif %}
