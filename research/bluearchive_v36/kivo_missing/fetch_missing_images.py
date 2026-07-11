@@ -15,6 +15,7 @@ from curl_cffi import requests
 from PIL import Image
 
 URL_RE = re.compile(r'https?://[^\s<>"\')\]]+?(?:\.png|\.jpe?g|\.webp|\.gif|\.bmp)(?:\?[^\s<>"\')\]]*)?', re.I)
+LOCAL_IMAGE_RE = re.compile(r'(?:\(|\s|^)(images/students/[^\s)]+?\.(?:png|jpe?g|webp|gif))', re.I)
 IMG_EXTS = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'}
 
 
@@ -51,8 +52,13 @@ def walk_urls(value, path='data'):
         for u in URL_RE.findall(value):
             yield path, u.rstrip('.,;')
         # Local gallery markdown paths can be served from static.kivo.wiki.
-        for m in re.finditer(r'(?<!https?://)(?:\(|\s|^)(images/students/[^\s)]+?\.(?:png|jpe?g|webp|gif))', value, re.I):
-            yield path, 'https://static.kivo.wiki/' + m.group(1)
+        for m in LOCAL_IMAGE_RE.finditer(value):
+            local_path = m.group(1)
+            # Avoid treating a suffix already captured inside an absolute URL as local.
+            prefix = value[max(0, m.start(1)-12):m.start(1)].lower()
+            if 'http://' in prefix or 'https://' in prefix:
+                continue
+            yield path, 'https://static.kivo.wiki/' + local_path
 
 
 def category(key: str, url: str) -> str:
@@ -114,7 +120,6 @@ def main():
         for key, url in walk_urls(d):
             if url not in candidates:
                 candidates[url] = key
-        # Give primary identity images priority before large galleries.
         ordered = sorted(candidates.items(), key=lambda kv: (
             0 if 'recollection_lobby' in kv[1] else 1 if 'avatar' in kv[1] else 2 if 'sd_model' in kv[1] else 3,
             kv[1], kv[0]
@@ -135,7 +140,8 @@ def main():
                     ext='.'+fmt.lower().replace('jpeg','jpg') if fmt else Path(urlparse(r.url).path).suffix.lower()
                     if ext not in IMG_EXTS: ext='.png'
                     cat=category(key,url)
-                    dest=imgroot/clean(cat,40)/clean(char,60)/f'{sha[:12]}_{clean(Path(urlparse(r.url).path).name,70)}{ext if not Path(urlparse(r.url).path).suffix else ""}'
+                    original_name=clean(Path(urlparse(r.url).path).name,70)
+                    dest=imgroot/clean(cat,40)/clean(char,60)/f'{sha[:12]}_{original_name}'
                     dest.parent.mkdir(parents=True,exist_ok=True)
                     if not dest.suffix: dest=dest.with_suffix(ext)
                     dest.write_bytes(data)
