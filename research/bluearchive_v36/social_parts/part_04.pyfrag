@@ -1,0 +1,114 @@
+    sources_ok = 0
+    sample_total = 0
+    source_counts = {}
+    source_status = {}
+    evidence_urls = []
+    for e in evs:
+        source_status[e["source"]] = e["status"]
+        source_counts[e["source"]] = e.get("sample_count", 0)
+        if e["status"] == "ok":
+            sources_ok += 1
+        sample_total += int(e.get("sample_count") or 0)
+        total.update(e.get("theme_counts") or {})
+        evidence_urls.extend(e.get("evidence_urls") or [])
+    ranked = sorted(total.items(), key=lambda z: (-z[1], z[0]))
+    primary = [k for k, v in ranked if v > 0][:5]
+    # Evidence level is descriptive, not a popularity ranking.
+    if sources_ok >= 6 and sample_total >= 80:
+        confidence = "高"
+    elif sources_ok >= 4 and sample_total >= 25:
+        confidence = "中"
+    elif sources_ok >= 2 and sample_total >= 5:
+        confidence = "低〜中"
+    else:
+        confidence = "低・証拠不足"
+    return {
+        **entry,
+        "social_sources_ok": sources_ok,
+        "social_sample_documents": sample_total,
+        "source_status_json": json.dumps(source_status, ensure_ascii=False),
+        "source_sample_counts_json": json.dumps(source_counts, ensure_ascii=False),
+        "theme_counts_json": json.dumps(dict(total), ensure_ascii=False),
+        "primary_fan_perception_axes": " | ".join(primary),
+        "sexualized_gaze_hits": total.get("sexualized_fetishized_gaze", 0),
+        "humidity_hits": total.get("high_emotional_humidity", 0),
+        "gritty_hardship_hits": total.get("muddy_grounded_hardship", 0),
+        "cute_protective_hits": total.get("cute_protective_family", 0),
+        "comedy_meme_hits": total.get("comedy_meme_failgirl", 0),
+        "power_respect_hits": total.get("competence_power_respect", 0),
+        "trauma_redemption_hits": total.get("trauma_tragedy_redemption", 0),
+        "relationship_hits": total.get("relationship_pairing_group", 0),
+        "outfit_hits": total.get("fashion_outfit_seasonal", 0),
+        "lore_hits": total.get("lore_mystery_speculation", 0),
+        "gameplay_meta_hits": total.get("gameplay_meta_evaluation", 0),
+        "criticism_hits": total.get("controversy_criticism_rejection", 0),
+        "confidence": confidence,
+        "evidence_urls": " | ".join(list(dict.fromkeys(evidence_urls))[:20]),
+        "interpretation_guard": "公開検索結果の標本に対する自動分類。性的視線は非露骨な語彙の集計のみで、対象人物の公式属性やファン全体の総意を意味しない。",
+    }
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--root", default="StuArchive")
+    ap.add_argument("--shard-index", type=int, default=0)
+    ap.add_argument("--shard-count", type=int, default=4)
+    ap.add_argument("--workers", type=int, default=3)
+    args = ap.parse_args()
+
+    all_rows = load_roster(Path(args.root))
+    rows = [r for i, r in enumerate(all_rows) if i % args.shard_count == args.shard_index]
+    out = Path(f"research/bluearchive_v36/social_out_{args.shard_index:02d}")
+    out.mkdir(parents=True, exist_ok=True)
+
+    evidence = []
+    tasks = []
+    with ThreadPoolExecutor(max_workers=args.workers) as ex:
+        for entry in rows:
+            funcs = [fetch_reddit, fetch_bilibili, fetch_fivech, fetch_dcinside]
+            # Higher-bandwidth Japanese sources are restricted to meaningful names,
+            # but still include every implemented student/outfit and named NPC.
+            meaningful = not re.search(r"(?i)^(Automata_|Citizen_|Enemy_|NPC\d|ID\d|.*_spr$)", entry["base_name_jp"])
+            if meaningful:
+                funcs.extend([fetch_yahoo, fetch_wikiru, fetch_niconico])
+            for fn in funcs:
+                tasks.append(ex.submit(fn, entry))
+        done = 0
+        for fut in as_completed(tasks):
+            try:
+                evidence.append(fut.result())
+            except Exception as e:
+                print("task failure", repr(e), flush=True)
+            done += 1
+            if done % 50 == 0:
+                print(f"completed {done}/{len(tasks)}", flush=True)
+
+    ev_by_id = defaultdict(list)
+    for e in evidence:
+        ev_by_id[e["student_id"]].append(e)
+    matrix = [synthesize(r, ev_by_id[r["student_id"]]) for r in rows]
+
+    # Write evidence JSONL and compact CSV matrix.
+    with (out / f"social_evidence_v36_shard{args.shard_index}.jsonl").open("w", encoding="utf-8") as f:
+        for e in sorted(evidence, key=lambda x: (x["student_id"], x["source"])):
+            f.write(json.dumps(e, ensure_ascii=False) + "\n")
+    if matrix:
+        with (out / f"fan_perception_matrix_v36_shard{args.shard_index}.csv").open("w", encoding="utf-8-sig", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(matrix[0].keys()))
+            w.writeheader(); w.writerows(matrix)
+    source_summary = Counter((e["source"], e["status"]) for e in evidence)
+    summary = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "shard_index": args.shard_index,
+        "shard_count": args.shard_count,
+        "roster_total": len(all_rows),
+        "entries_in_shard": len(rows),
+        "evidence_records": len(evidence),
+        "source_status_counts": {f"{k[0]}::{k[1]}": v for k, v in source_summary.items()},
+        "safety": "No explicit/NSFW text or images retained. Sexualization is stored only as an aggregate non-graphic theme count.",
+    }
+    (out / f"summary_v36_shard{args.shard_index}.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps(summary, ensure_ascii=False), flush=True)
+
+if __name__ == "__main__":
+    main()
