@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import html
+import json
+import math
+import os
+import re
+import threading
+import time
+import unicodedata
+from collections import Counter, defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import quote, urljoin
+
+from bs4 import BeautifulSoup
+from curl_cffi import requests
+
+# This script stores aggregate signals and safe metadata only. It deliberately
+# does not retain explicit/NSFW text or images.
+
+THEMES = {
+    "sexualized_fetishized_gaze": [
+        r"エロ", r"えっち", r"色気", r"セクシ", r"性癖", r"フェチ", r"太もも", r"ふともも", r"腋", r"脇", r"胸", r"尻", r"脚", r"水着", r"バニー", r"メイド", r"hot\b", r"sexy", r"thigh", r"armpit", r"swimsuit", r"bunny", r"maid", r"色气", r"性感", r"大腿", r"腋", r"泳装", r"兔女郎", r"女仆", r"섹시", r"허벅지", r"겨드랑", r"수영복", r"바니", r"메이드"
+    ],
+    "romantic_teacher_focus": [
+        r"先生", r"結婚", r"嫁", r"妻", r"恋人", r"デート", r"彼女", r"sensei", r"wife", r"marry", r"marriage", r"girlfriend", r"date\b", r"老师", r"结婚", r"老婆", r"女友", r"선생", r"결혼", r"아내", r"여친"
+    ],
+    "high_emotional_humidity": [
+        r"湿度", r"重い女", r"愛が重", r"依存", r"執着", r"嫉妬", r"独占", r"ヤンデレ", r"情緒", r"曇らせ", r"possessive", r"obsess", r"clingy", r"jealous", r"yandere", r"dependency", r"病娇", r"占有", r"依赖", r"嫉妒", r"沉重", r"집착", r"질투", r"얀데레", r"의존", r"감정"
+    ],
+    "muddy_grounded_hardship": [
+        r"泥臭", r"苦労", r"努力", r"働", r"生活", r"貧乏", r"借金", r"野宿", r"責任", r"疲れ", r"過労", r"戦場", r"傷", r"生存", r"surviv", r"hardwork", r"struggle", r"burden", r"poverty", r"debt", r"responsib", r"exhaust", r"suffer", r"辛苦", r"努力", r"生活", r"贫穷", r"债务", r"露宿", r"责任", r"고생", r"노력", r"생활", r"가난", r"빚", r"노숙", r"책임", r"과로"
+    ],
+    "cute_protective_family": [
+        r"かわい", r"可愛", r"守りたい", r"娘", r"妹", r"尊い", r"癒し", r"天使", r"cute", r"adorable", r"protect", r"daughter", r"little sister", r"precious", r"angel", r"可爱", r"想保护", r"女儿", r"妹妹", r"治愈", r"귀여", r"지켜", r"딸", r"여동생", r"힐링", r"천사"
+    ],
+    "comedy_meme_failgirl": [
+        r"草", r"笑", r"ネタ", r"ミーム", r"おもしろ", r"面白", r"ギャグ", r"芸人", r"ポンコツ", r"顔芸", r"泣き虫", r"ダメ女", r"meme", r"funny", r"lol", r"clown", r"failgirl", r"goofy", r"梗", r"搞笑", r"小丑", r"废柴", r"밈", r"웃", r"개그", r"허당", r"광대"
+    ],
+    "competence_power_respect": [
+        r"強い", r"最強", r"壊れ", r"人権", r"火力", r"有能", r"天才", r"格好良", r"かっこよ", r"無双", r"badass", r"strong", r"powerful", r"overpowered", r"broken", r"genius", r"competent", r"cool", r"强", r"最强", r"强度", r"有能", r"天才", r"帅", r"최강", r"강함", r"성능", r"유능", r"천재", r"멋"
+    ],
+    "trauma_tragedy_redemption": [
+        r"トラウマ", r"過去", r"救済", r"赦し", r"贖罪", r"悲劇", r"泣け", r"つらい", r"辛い", r"救われ", r"trauma", r"redemption", r"forgiv", r"tragic", r"tragedy", r"salvation", r"past", r"救赎", r"过去", r"原谅", r"赎罪", r"悲剧", r"트라우마", r"구원", r"용서", r"속죄", r"비극", r"과거"
+    ],
+    "relationship_pairing_group": [
+        r"カプ", r"CP", r"組み合わせ", r"コンビ", r"幼馴染", r"姉妹", r"相棒", r"親友", r"部活", r"小隊", r"ship", r"pairing", r"duo", r"childhood friend", r"sisters", r"best friend", r"squad", r"社团", r"组合", r"青梅竹马", r"姐妹", r"搭档", r"小队", r"커플", r"조합", r"소꿉친구", r"자매", r"파트너", r"소대"
+    ],
+    "fashion_outfit_seasonal": [
+        r"衣装", r"服", r"制服", r"水着", r"ドレス", r"バニー", r"メイド", r"パジャマ", r"正月", r"体操服", r"outfit", r"fashion", r"uniform", r"swimsuit", r"dress", r"bunny", r"maid", r"pajama", r"new year", r"服装", r"制服", r"泳装", r"礼服", r"兔女郎", r"女仆", r"睡衣", r"新年", r"의상", r"교복", r"수영복", r"드레스", r"바니", r"메이드", r"파자마", r"새해"
+    ],
+    "lore_mystery_speculation": [
+        r"考察", r"伏線", r"正体", r"設定", r"神話", r"モチーフ", r"由来", r"謎", r"世界観", r"lore", r"theory", r"speculat", r"mystery", r"identity", r"symbol", r"设定", r"考据", r"伏笔", r"真身", r"神话", r"谜", r"떡밥", r"설정", r"추측", r"정체", r"신화", r"수수께끼"
+    ],
+    "gameplay_meta_evaluation": [
+        r"ガチャ", r"引く", r"天井", r"スキル", r"編成", r"総力戦", r"大決戦", r"対抗戦", r"人権", r"性能", r"tier", r"pull", r"reroll", r"skill", r"raid", r"meta", r"banner", r"build", r"抽卡", r"井", r"技能", r"编队", r"总力战", r"强度", r"攻略", r"뽑기", r"천장", r"스킬", r"편성", r"총력전", r"성능", r"공략"
+    ],
+    "voice_animation_performance": [
+        r"声優", r"CV", r"声", r"演技", r"モーション", r"表情", r"アニメ", r"Live2D", r"voice", r"actor", r"animation", r"expression", r"motion", r"配音", r"声优", r"演技", r"动作", r"表情", r"动画", r"성우", r"연기", r"모션", r"표정", r"애니"
+    ],
+    "controversy_criticism_rejection": [
+        r"嫌い", r"苦手", r"炎上", r"賛否", r"批判", r"不満", r"弱い", r"微妙", r"ヘイト", r"改悪", r"annoying", r"hate", r"dislike", r"controvers", r"critici", r"bad writing", r"weak", r"讨厌", r"争议", r"批评", r"不满", r"弱", r"싫", r"논란", r"비판", r"불만", r"약함"
+    ],
+    "domestic_maternal_everyday": [
+        r"料理", r"家事", r"母性", r"ママ", r"お母さん", r"日常", r"生活感", r"ご飯", r"掃除", r"世話", r"domestic", r"cooking", r"motherly", r"mom", r"daily life", r"caretaker", r"家务", r"母性", r"妈妈", r"日常", r"做饭", r"照顾", r"요리", r"가사", r"모성", r"엄마", r"일상", r"돌봄"
+    ],
+    "merch_collecting_devotion": [
+        r"グッズ", r"ぬい", r"アクスタ", r"フィギュア", r"買った", r"売り切れ", r"推し", r"祭壇", r"merch", r"plush", r"figure", r"sold out", r"favorite", r"oshi", r"周边", r"玩偶", r"手办", r"售罄", r"推", r"굿즈", r"인형", r"피규어", r"품절", r"최애"
+    ],
+}
+PATTERNS = {k: re.compile("|".join(v), re.I) for k, v in THEMES.items()}
+SENSITIVE_RE = re.compile(r"(?i)(r-?18|nsfw|explicit|nude|naked|裸|全裸|性交|sex\b|porn|乳首|陰部|性器|射精|凌辱|강간|누드|야동|色情|裸体|性交)")
+DATE_RE = re.compile(r"(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}月\d{1,2}日)")
+
+SOURCE_LOCKS = defaultdict(threading.Lock)
+SOURCE_LAST = defaultdict(float)
+RATE_GAPS = {"reddit": 0.20, "bilibili": 0.25, "yahoo_x": 0.35, "wikiru": 0.40, "fivech": 0.30, "dcinside": 0.30, "niconico": 0.30}
+
+
+def clean_text(s: str) -> str:
+    s = BeautifulSoup(html.unescape(s or ""), "html.parser").get_text(" ", strip=True)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def norm(s: str) -> str:
+    return unicodedata.normalize("NFKC", s or "").strip()
+
+
+def safe_title(s: str, limit: int = 150) -> str:
+    s = clean_text(s)
+    if SENSITIVE_RE.search(s):
+        return "[性的・露骨表現を含むため本文非保存]"
+    return s[:limit]
+
+
+def classify(texts: list[str]) -> dict[str, int]:
+    counts = Counter()
+    for raw in texts:
+        t = norm(clean_text(raw))
+        if not t:
+            continue
+        for name, pat in PATTERNS.items():
+            if pat.search(t):
+                counts[name] += 1
+    return dict(counts)
+
+
+def req(source: str, url: str, *, json_expected: bool = False, retries: int = 3):
+    last = None
+    for attempt in range(retries):
+        try:
+            with SOURCE_LOCKS[source]:
+                gap = RATE_GAPS.get(source, 0.25)
+                wait = SOURCE_LAST[source] + gap - time.monotonic()
