@@ -1,0 +1,120 @@
+                if wait > 0:
+                    time.sleep(wait)
+                SOURCE_LAST[source] = time.monotonic()
+            r = requests.get(
+                url,
+                timeout=45,
+                allow_redirects=True,
+                impersonate="chrome",
+                headers={
+                    "User-Agent": "Mozilla/5.0 BlueArchiveFanPerceptionAudit/36",
+                    "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7,ko;q=0.6,zh-CN;q=0.5",
+                    "Referer": "https://www.google.com/",
+                },
+            )
+            if r.status_code == 200:
+                return r
+            last = RuntimeError(f"HTTP {r.status_code}")
+        except Exception as e:
+            last = e
+        time.sleep(1.0 + attempt * 1.5)
+    raise RuntimeError(f"request failed {url}: {last!r}")
+
+
+def rec_base(source: str, entry: dict) -> dict:
+    return {
+        "source": source,
+        "student_id": entry["student_id"],
+        "entry_name_jp": entry["entry_name_jp"],
+        "base_name_jp": entry["base_name_jp"],
+        "variant_jp": entry["variant_jp"],
+        "status": "ok",
+        "sample_count": 0,
+        "total_hint": None,
+        "theme_counts": {},
+        "safe_sample_titles": [],
+        "evidence_urls": [],
+        "notes": "",
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def fetch_reddit(entry: dict) -> dict:
+    out = rec_base("reddit_arctic_shift", entry)
+    q = entry["query_en"] or entry["query_ja"]
+    if not q:
+        out.update(status="not_queryable", notes="usable alias missing")
+        return out
+    try:
+        post_url = "https://arctic-shift.photon-reddit.com/api/posts/search?" + \
+            f"subreddit=BlueArchive&query={quote(q)}&over_18=false&limit=50&sort=desc&fields=" + \
+            quote("id,title,selftext,permalink,created_utc,score,num_comments,over_18,url")
+        comment_url = "https://arctic-shift.photon-reddit.com/api/comments/search?" + \
+            f"subreddit=BlueArchive&body={quote(q)}&limit=75&sort=desc&fields=" + \
+            quote("id,body,permalink,created_utc,score,link_id")
+        p = req("reddit", post_url, json_expected=True).json().get("data", [])
+        c = req("reddit", comment_url, json_expected=True).json().get("data", [])
+        docs, titles, urls = [], [], []
+        for x in p:
+            if x.get("over_18") is True:
+                continue
+            tx = clean_text((x.get("title") or "") + " " + (x.get("selftext") or ""))
+            if tx:
+                docs.append(tx)
+            if x.get("title") and not SENSITIVE_RE.search(x.get("title") or ""):
+                titles.append(safe_title(x["title"]))
+            if x.get("permalink"):
+                urls.append("https://www.reddit.com" + x["permalink"])
+        for x in c:
+            tx = clean_text(x.get("body") or "")
+            if tx:
+                docs.append(tx)
+            if x.get("permalink"):
+                urls.append("https://www.reddit.com" + x["permalink"])
+        out.update(
+            sample_count=len(docs),
+            total_hint=f"posts_sample={len(p)};comments_sample={len(c)}",
+            theme_counts=classify(docs),
+            safe_sample_titles=list(dict.fromkeys(titles))[:5],
+            evidence_urls=list(dict.fromkeys(urls))[:8],
+            notes="r/BlueArchive public archive; search samples, not a platform-wide total; NSFW posts excluded and explicit text not retained.",
+        )
+    except Exception as e:
+        out.update(status="error", notes=repr(e))
+    return out
+
+
+def fetch_bilibili(entry: dict) -> dict:
+    out = rec_base("bilibili", entry)
+    q = (entry["query_cn"] or entry["query_ja"]) + " 碧蓝档案"
+    try:
+        url = "https://api.bilibili.com/x/web-interface/search/type?" + \
+            f"search_type=video&keyword={quote(q)}&page=1&page_size=20&order=totalrank"
+        j = req("bilibili", url, json_expected=True).json()
+        data = j.get("data") or {}
+        rows = data.get("result") or []
+        docs, titles, urls = [], [], []
+        for x in rows:
+            title = clean_text(x.get("title") or "")
+            desc = clean_text(x.get("description") or "")
+            tags = clean_text(x.get("tag") or "")
+            docs.append(" ".join([title, desc, tags]))
+            if title and not SENSITIVE_RE.search(title):
+                titles.append(safe_title(title))
+            if x.get("arcurl"):
+                urls.append(x["arcurl"].replace("http://", "https://"))
+        out.update(
+            sample_count=len(rows),
+            total_hint=data.get("numResults"),
+            theme_counts=classify(docs),
+            safe_sample_titles=list(dict.fromkeys(titles))[:6],
+            evidence_urls=list(dict.fromkeys(urls))[:8],
+            notes="Bilibili video search total and top-result title/description/tag sample; popularity and recommendation bias apply.",
+        )
+    except Exception as e:
+        out.update(status="error", notes=repr(e))
+    return out
+
+
+def fetch_yahoo(entry: dict) -> dict:
+    out = rec_base("yahoo_realtime_x", entry)
