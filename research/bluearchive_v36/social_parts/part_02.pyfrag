@@ -1,0 +1,120 @@
+    q = entry["query_ja"] + " ブルアカ"
+    try:
+        url = "https://search.yahoo.co.jp/realtime/search?p=" + quote(q) + "&ei=UTF-8"
+        r = req("yahoo_x", url)
+        soup = BeautifulSoup(r.text, "html.parser")
+        docs, titles, urls = [], [], []
+        # Search result containers vary; collect text around X links and dedupe.
+        for a in soup.find_all("a", href=True):
+            href = a.get("href") or ""
+            if "x.com/" not in href and "twitter.com/" not in href:
+                continue
+            node = a.find_parent(["article", "li"]) or a.find_parent("div") or a
+            tx = clean_text(node.get_text(" ", strip=True))
+            if len(tx) < 12 or len(tx) > 1000:
+                continue
+            docs.append(tx)
+            if not SENSITIVE_RE.search(tx):
+                titles.append(safe_title(tx, 180))
+            urls.append(href)
+        # Fallback: visible text fragments containing the character name.
+        if not docs:
+            for node in soup.find_all(["article", "li", "p"]):
+                tx = clean_text(node.get_text(" ", strip=True))
+                if entry["given_name_jp"] and entry["given_name_jp"] in tx and len(tx) < 800:
+                    docs.append(tx)
+        out.update(
+            sample_count=len(list(dict.fromkeys(docs))),
+            total_hint=None,
+            theme_counts=classify(list(dict.fromkeys(docs))),
+            safe_sample_titles=list(dict.fromkeys(titles))[:6],
+            evidence_urls=list(dict.fromkeys(urls))[:8],
+            notes="Yahoo!リアルタイム検索の取得時点スナップショット。X全期間の総量ではなく、検索時の公開結果・ランキングに依存。",
+        )
+    except Exception as e:
+        out.update(status="error", notes=repr(e))
+    return out
+
+
+def fetch_wikiru(entry: dict) -> dict:
+    out = rec_base("wikiru_comments", entry)
+    page = "コメント/" + entry["wikiru_page_name"]
+    try:
+        url = "https://bluearchive.wikiru.jp/?" + quote(page, safe="/（）＊")
+        r = req("wikiru", url)
+        soup = BeautifulSoup(r.text, "html.parser")
+        title = soup.title.get_text(" ", strip=True) if soup.title else ""
+        body = soup.select_one("div#body") or soup.select_one("main") or soup
+        candidates = []
+        for node in body.find_all(["li", "p", "blockquote"]):
+            tx = clean_text(node.get_text(" ", strip=True))
+            if not (8 <= len(tx) <= 1200):
+                continue
+            if DATE_RE.search(tx) or re.search(r"(?:^|\s)--\s|No\.\d+|ID[:：])", tx):
+                candidates.append(tx)
+        # If page is valid but date markers were removed by layout, use compact list items.
+        if not candidates and ("コメント/" in title or entry["wikiru_page_name"] in title):
+            for node in body.find_all("li"):
+                tx = clean_text(node.get_text(" ", strip=True))
+                if 12 <= len(tx) <= 700 and not re.search(r"トップ|編集|一覧|検索|キャラクター", tx):
+                    candidates.append(tx)
+        candidates = list(dict.fromkeys(candidates))[-300:]
+        safe_titles = []
+        for tx in candidates:
+            if not SENSITIVE_RE.search(tx):
+                # Strip timestamps/user IDs from the stored safe sample.
+                st = re.sub(r"\s*(?:--\s*)?\d{4}[-/]\d{1,2}[-/]\d{1,2}.*$", "", tx)
+                if st:
+                    safe_titles.append(safe_title(st, 180))
+        valid = "コメント/" in title or entry["wikiru_page_name"] in title
+        out.update(
+            status="ok" if valid else "page_not_found_or_redirected",
+            sample_count=len(candidates),
+            total_hint=None,
+            theme_counts=classify(candidates),
+            safe_sample_titles=list(dict.fromkeys(safe_titles))[:6],
+            evidence_urls=[str(r.url)] if valid else [],
+            notes="wikiru character comment page. Community moderation and survivor bias apply; explicit text is not retained.",
+        )
+    except Exception as e:
+        out.update(status="error", notes=repr(e))
+    return out
+
+
+def fetch_fivech(entry: dict) -> dict:
+    out = rec_base("fivech_thread_titles", entry)
+    q = entry["given_name_jp"] + (" " + entry["variant_jp"] if entry["variant_jp"] else "") + " ブルアカ"
+    try:
+        url = "https://find.5ch.net/search?q=" + quote(q)
+        r = req("fivech", url)
+        soup = BeautifulSoup(r.text, "html.parser")
+        docs, titles, urls = [], [], []
+        for a in soup.find_all("a", href=True):
+            tx = clean_text(a.get_text(" ", strip=True))
+            href = a.get("href") or ""
+            if len(tx) < 5:
+                continue
+            if not re.search(r"ブルアカ|ブルーアーカイブ|Blue\s*Archive", tx, re.I):
+                continue
+            if "5ch" not in href and "read.cgi" not in href and "itest" not in href:
+                continue
+            docs.append(tx); titles.append(safe_title(tx)); urls.append(urljoin(str(r.url), href))
+        out.update(
+            sample_count=len(list(dict.fromkeys(docs))),
+            total_hint=None,
+            theme_counts=classify(list(dict.fromkeys(docs))),
+            safe_sample_titles=list(dict.fromkeys(titles))[:8],
+            evidence_urls=list(dict.fromkeys(urls))[:8],
+            notes="5chスレタイ検索。本文全量ではなく、スレッド題名に表れた話題・ゲーム評価の証拠。一般名詞衝突を除外。",
+        )
+    except Exception as e:
+        out.update(status="error", notes=repr(e))
+    return out
+
+
+def fetch_dcinside(entry: dict) -> dict:
+    out = rec_base("dcinside_projectmx", entry)
+    q = entry["given_name_kr"] or entry["given_name_jp"]
+    if entry["variant_kr"]:
+        q += " " + entry["variant_kr"]
+    try:
