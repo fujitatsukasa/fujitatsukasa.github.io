@@ -1,0 +1,28 @@
+name: Blue Archive roster completeness audit v36
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/bluearchive_v36/roster_audit_v36.py'
+      - '.github/workflows/bluearchive-roster-audit-v36.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --quiet curl_cffi beautifulsoup4
+      - run: git clone --depth=1 https://github.com/QuetzalSidera/StuArchive.git StuArchive
+      - run: python research/bluearchive_v36/roster_audit_v36.py --root StuArchive --out research/bluearchive_v36/roster_out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-roster-completeness-v36
+          path: research/bluearchive_v36/roster_out
+          retention-days: 1
+          compression-level: 9
