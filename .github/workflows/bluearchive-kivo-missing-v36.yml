@@ -1,0 +1,33 @@
+name: Blue Archive Kivo missing-image recovery v36
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/bluearchive_v36/kivo_missing/**'
+      - '.github/workflows/bluearchive-kivo-missing-v36.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare dependencies and roster
+        run: |
+          python -m pip install --quiet curl_cffi pillow
+          git clone --depth=1 https://github.com/QuetzalSidera/StuArchive.git StuArchive
+      - name: Download and verify remaining character images
+        run: python research/bluearchive_v36/kivo_missing/fetch_missing_images.py
+      - name: Upload recovered image bodies
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-kivo-missing-images-v36
+          path: research/bluearchive_v36/kivo_missing_out
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 1
