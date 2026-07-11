@@ -1,0 +1,120 @@
+        url = "https://gall.dcinside.com/mgallery/board/lists/?id=projectmx&s_type=search_subject_memo&s_keyword=" + quote(q)
+        r = req("dcinside", url)
+        soup = BeautifulSoup(r.text, "html.parser")
+        docs, titles, urls = [], [], []
+        nodes = soup.select("tr.ub-content td.gall_tit a") or soup.select("td.gall_tit a")
+        for a in nodes:
+            tx = clean_text(a.get_text(" ", strip=True))
+            href = a.get("href") or ""
+            if len(tx) < 2:
+                continue
+            docs.append(tx)
+            if not SENSITIVE_RE.search(tx): titles.append(safe_title(tx))
+            urls.append(urljoin("https://gall.dcinside.com", href))
+        out.update(
+            sample_count=len(list(dict.fromkeys(docs))),
+            total_hint=None,
+            theme_counts=classify(list(dict.fromkeys(docs))),
+            safe_sample_titles=list(dict.fromkeys(titles))[:8],
+            evidence_urls=list(dict.fromkeys(urls))[:8],
+            notes="DCInside projectmx gallery search result titles. Korean community snapshot; board deletion and search ranking bias apply.",
+        )
+    except Exception as e:
+        out.update(status="error", notes=repr(e))
+    return out
+
+
+def fetch_niconico(entry: dict) -> dict:
+    out = rec_base("niconico_video_search", entry)
+    q = entry["query_ja"] + " ブルアカ"
+    try:
+        url = "https://www.nicovideo.jp/search/" + quote(q, safe="") + "?sort=f&order=d"
+        r = req("niconico", url)
+        soup = BeautifulSoup(r.text, "html.parser")
+        docs, titles, urls = [], [], []
+        for a in soup.find_all("a", href=True):
+            href = a.get("href") or ""
+            if "/watch/" not in href:
+                continue
+            tx = clean_text(a.get_text(" ", strip=True) or a.get("title") or "")
+            if len(tx) < 3:
+                continue
+            docs.append(tx)
+            if not SENSITIVE_RE.search(tx): titles.append(safe_title(tx))
+            urls.append(urljoin("https://www.nicovideo.jp", href))
+        out.update(
+            sample_count=len(list(dict.fromkeys(docs))),
+            total_hint=None,
+            theme_counts=classify(list(dict.fromkeys(docs))),
+            safe_sample_titles=list(dict.fromkeys(titles))[:8],
+            evidence_urls=list(dict.fromkeys(urls))[:8],
+            notes="Niconico video search result titles; fan video/meme/MMD coverage, not comments total.",
+        )
+    except Exception as e:
+        out.update(status="error", notes=repr(e))
+    return out
+
+
+def display_name(d: dict) -> tuple[str, str, str]:
+    fam = norm(d.get("family_name_jp"))
+    giv = norm(d.get("given_name_jp") or d.get("given_name"))
+    base = fam + giv if fam else giv
+    if not base:
+        base = norm(d.get("code") or d.get("name") or f"ID{d.get('id')}")
+    variant = norm(d.get("skin_jp"))
+    if not variant:
+        raw = norm(d.get("skin"))
+        if raw and raw.lower() not in {"original", "default", "初始", "默认"}:
+            variant = raw
+    entry = f"{base}（{variant}）" if variant else base
+    return base, variant, entry
+
+
+def load_roster(root: Path) -> list[dict]:
+    idx = json.loads((root / "data/students/index.json").read_text(encoding="utf-8"))
+    rows = []
+    for item in idx.get("items", []):
+        p = root / f"data/students/{int(item['id'])}.json"
+        if not p.exists():
+            continue
+        j = json.loads(p.read_text(encoding="utf-8")); d = j.get("data", j)
+        base, variant, entry = display_name(d)
+        giv_jp = norm(d.get("given_name_jp") or d.get("given_name") or base)
+        fam_en = norm(d.get("family_name_en")); giv_en = norm(d.get("given_name_en"))
+        fam_cn = norm(d.get("family_name_cn")); giv_cn = norm(d.get("given_name_cn") or d.get("given_name"))
+        fam_kr = norm(d.get("family_name_kr")); giv_kr = norm(d.get("given_name_kr"))
+        v_cn = norm(d.get("skin_cn")); v_kr = norm(d.get("skin_kr")); v_en = norm(d.get("skin_en")) or variant
+        query_ja = giv_jp + (f" {variant}" if variant else "")
+        query_en = " ".join(x for x in [giv_en, v_en] if x)
+        query_cn = (fam_cn + giv_cn or giv_cn or base) + (f" {v_cn}" if v_cn else "")
+        query_kr = (fam_kr + giv_kr or giv_kr or base) + (f" {v_kr}" if v_kr else "")
+        installed = bool(d.get("is_install_jp", d.get("is_install", False)))
+        npc = bool(d.get("is_npc"))
+        status = "JP実装済み生徒・衣装" if installed and not npc else ("NPC・敵・市民" if npc else "未実装・その他")
+        wikiru = giv_jp + (f"（{variant}）" if variant else "")
+        rows.append({
+            "student_id": int(d.get("id") or item["id"]),
+            "entry_name_jp": entry,
+            "base_name_jp": base,
+            "variant_jp": variant,
+            "given_name_jp": giv_jp,
+            "given_name_en": giv_en,
+            "given_name_cn": giv_cn,
+            "given_name_kr": giv_kr,
+            "variant_cn": v_cn,
+            "variant_kr": v_kr,
+            "query_ja": query_ja,
+            "query_en": query_en,
+            "query_cn": query_cn,
+            "query_kr": query_kr,
+            "wikiru_page_name": wikiru,
+            "status_group": status,
+            "jp_implemented": installed and not npc,
+            "is_npc": npc,
+            "release_date_jp": d.get("release_date") or "",
+        })
+    return sorted(rows, key=lambda x: (x["status_group"], x["base_name_jp"], x["variant_jp"], x["student_id"]))
+
+
+def synthesize(entry: dict, evs: list[dict]) -> dict:
+    total = Counter()
