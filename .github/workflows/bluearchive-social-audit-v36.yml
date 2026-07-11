@@ -1,0 +1,49 @@
+name: Blue Archive all-character social audit v36
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/bluearchive_v36/social_parts/**'
+      - '.github/workflows/bluearchive-social-audit-v36.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare current roster and collector
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python -m pip install --quiet curl_cffi beautifulsoup4
+          git clone --depth=1 https://github.com/QuetzalSidera/StuArchive.git StuArchive
+          cat research/bluearchive_v36/social_parts/part_*.pyfrag > /tmp/social_audit_v36.py
+          python -m py_compile /tmp/social_audit_v36.py
+      - name: Audit all public-source fan-perception signals
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python /tmp/social_audit_v36.py \
+            --root StuArchive \
+            --shard-index '${{ matrix.shard }}' \
+            --shard-count 4 \
+            --workers 3
+      - name: Upload audit shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-social-audit-v36-shard-${{ matrix.shard }}
+          path: research/bluearchive_v36/social_out_*
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 1
