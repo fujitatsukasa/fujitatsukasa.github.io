@@ -1,0 +1,43 @@
+name: Blue Archive social evidence v37
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/bluearchive_v37/social_evidence_collect.py
+      - .github/workflows/bluearchive-social-evidence-v37.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies and current roster
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python -m pip install --quiet curl_cffi beautifulsoup4
+          git clone --depth=1 https://github.com/QuetzalSidera/StuArchive.git StuArchive
+      - name: Collect public social evidence
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python research/bluearchive_v37/social_evidence_collect.py StuArchive '${{ matrix.shard }}' 8
+      - name: Upload evidence shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-social-evidence-${{ matrix.shard }}-v37
+          path: artifact_social_v37_*
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 1
