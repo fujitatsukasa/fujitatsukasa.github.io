@@ -1,0 +1,41 @@
+name: Blue Archive timeline and media metadata v37
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/bluearchive-timeline-media-export-v37.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Export current timeline and official-media metadata
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --depth=1 https://github.com/QuetzalSidera/StuArchive.git StuArchive
+          mkdir -p artifact_timeline_media_v37/data
+          for path in index.json timeline comics articles news current; do
+            if [ -e "StuArchive/data/$path" ]; then
+              cp -a "StuArchive/data/$path" "artifact_timeline_media_v37/data/"
+            fi
+          done
+          printf '%s\n' \
+            'This artifact preserves the current StuArchive timeline, comics, articles, news, and current-event metadata for script-generation chronology.' \
+            > artifact_timeline_media_v37/README.txt
+          find artifact_timeline_media_v37 -type f -printf '%P\t%s\n' | sort > artifact_timeline_media_v37/file_inventory.tsv
+      - name: Upload timeline/media artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-timeline-media-v37
+          path: artifact_timeline_media_v37
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 1
