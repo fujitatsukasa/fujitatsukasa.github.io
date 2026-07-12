@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - research/bluearchive_v37/social_evidence_collect.py
+      - research/bluearchive_v37/social_evidence_collect_v2.py
       - .github/workflows/bluearchive-social-evidence-v37.yml
   workflow_dispatch:
 
@@ -32,11 +33,11 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          python research/bluearchive_v37/social_evidence_collect.py StuArchive '${{ matrix.shard }}' 8
+          python research/bluearchive_v37/social_evidence_collect_v2.py StuArchive '${{ matrix.shard }}' 8
       - name: Upload evidence shard
         uses: actions/upload-artifact@v4
         with:
-          name: bluearchive-social-evidence-${{ matrix.shard }}-v37
+          name: bluearchive-social-evidence-${{ matrix.shard }}-v37-safe
           path: artifact_social_v37_*
           if-no-files-found: error
           compression-level: 9
