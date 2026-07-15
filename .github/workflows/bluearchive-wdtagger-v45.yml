@@ -1,0 +1,33 @@
+name: Blue Archive anime visual features v45
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/bluearchive_v45/wdtagger_visual_features.py
+      - .github/workflows/bluearchive-wdtagger-v45.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies and current roster
+        run: |
+          python -m pip install --quiet huggingface_hub onnxruntime pandas numpy pillow requests
+          git clone --depth=1 https://github.com/QuetzalSidera/StuArchive.git StuArchive
+      - name: Analyze all 481 official avatar images
+        run: python research/bluearchive_v45/wdtagger_visual_features.py StuArchive artifact_bluearchive_wdtagger_v45
+      - name: Upload visual features
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-wdtagger-v45
+          path: artifact_bluearchive_wdtagger_v45
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 2
