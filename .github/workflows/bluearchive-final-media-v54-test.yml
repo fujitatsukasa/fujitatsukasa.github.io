@@ -1,0 +1,31 @@
+name: Blue Archive final media v54 test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/bluearchive_v54/test_final_media.py
+      - .github/workflows/bluearchive-final-media-v54-test.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: python -m pip install --quiet requests pillow edge-tts
+      - name: Generate one referenced still and Japanese TTS
+        run: python research/bluearchive_v54/test_final_media.py
+      - name: Upload test media
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-final-media-v54-test
+          path: artifact_bluearchive_final_media_v54_test
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 2
