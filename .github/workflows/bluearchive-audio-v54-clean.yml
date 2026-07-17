@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - research/bluearchive_v54/generate_audio_v54_clean.py
+      - research/bluearchive_v54/generate_audio_v54_clean_diagnostic.py
       - .github/workflows/bluearchive-audio-v54-clean.yml
   workflow_dispatch:
 
@@ -23,8 +24,9 @@ jobs:
           sudo apt-get install -y -qq ffmpeg
           python -m pip install --quiet edge-tts pydub
       - name: Generate Japanese narration package
-        run: python research/bluearchive_v54/generate_audio_v54_clean.py
+        run: python research/bluearchive_v54/generate_audio_v54_clean_diagnostic.py
       - name: Upload narration package
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bluearchive-audio-v54-clean
