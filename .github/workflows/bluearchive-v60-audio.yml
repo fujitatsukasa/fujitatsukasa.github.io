@@ -1,0 +1,38 @@
+name: Blue Archive v60 final narration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/bluearchive_v60/**
+      - .github/workflows/bluearchive-v60-audio.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  narrate:
+    strategy:
+      fail-fast: false
+      matrix:
+        video: [reaction, concept, explainer, ss]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install audio dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --quiet edge-tts pydub
+      - name: Generate narration
+        run: python research/bluearchive_v60/generate_v60_audio.py ${{ matrix.video }}
+      - name: Upload narration
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-v60-audio-${{ matrix.video }}
+          path: artifact_v60_audio_${{ matrix.video }}
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 2
