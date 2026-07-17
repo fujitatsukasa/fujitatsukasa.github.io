@@ -1,0 +1,28 @@
+name: Blue Archive v60 data check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/bluearchive_v60/**
+      - .github/workflows/bluearchive-v60-data-check.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate encoded data
+        run: python research/bluearchive_v60/validate_v60_data.py
+      - name: Upload validation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-v60-data-validation
+          path: artifact_v60_data_validation
+          if-no-files-found: error
+          retention-days: 2
