@@ -6,6 +6,7 @@ on:
     paths:
       - research/bluearchive_v54/generate_audio_v54.py
       - research/bluearchive_v54/generate_audio_v54_fixed.py
+      - research/bluearchive_v54/generate_audio_v54_diagnostic.py
       - .github/workflows/bluearchive-audio-v54.yml
   workflow_dispatch:
 
@@ -24,8 +25,9 @@ jobs:
           sudo apt-get install -y -qq ffmpeg
           python -m pip install --quiet edge-tts pydub
       - name: Generate all Japanese narration, timing CSV and subtitles
-        run: python research/bluearchive_v54/generate_audio_v54_fixed.py
+        run: python research/bluearchive_v54/generate_audio_v54_diagnostic.py
       - name: Upload narration package
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bluearchive-audio-v54
