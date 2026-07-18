@@ -1,0 +1,24 @@
+name: Blue Archive storyboard probe v61
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/bluearchive_v61/storyboard_probe.py
+      - .github/workflows/bluearchive-storyboard-probe-v61.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --quiet requests pillow
+      - run: python research/bluearchive_v61/storyboard_probe.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-storyboard-probe-v61
+          path: artifact_storyboard_probe_v61
+          if-no-files-found: error
+          retention-days: 2
