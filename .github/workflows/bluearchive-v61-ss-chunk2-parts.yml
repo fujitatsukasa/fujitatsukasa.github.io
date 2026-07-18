@@ -1,0 +1,32 @@
+name: Blue Archive v61 SS chunk2 parts
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/bluearchive_v61/generate_v61_ss_chunk2_parts.py
+      - research/bluearchive_v61/v61_ss.b64
+      - .github/workflows/bluearchive-v61-ss-chunk2-parts.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  part:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [0,1,2,3]
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --quiet edge-tts pydub
+      - run: python research/bluearchive_v61/generate_v61_ss_chunk2_parts.py '${{ matrix.part }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v61-ss-chunk2-part-${{ matrix.part }}
+          path: artifact_v61_ss_chunk2_part_${{ matrix.part }}
+          if-no-files-found: error
+          retention-days: 2
