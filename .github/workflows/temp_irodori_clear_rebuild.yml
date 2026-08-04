@@ -1,0 +1,122 @@
+name: Temporary strict clear Irodori rebuild
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  build-voice:
+    if: startsWith(github.head_ref, 'tmp/irodori-clear-rebuild-')
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        voice: [0, 1, 2, 3, 4, 5, 6, 7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      HF_XET_HIGH_PERFORMANCE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      TOKENIZERS_PARALLELISM: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system audio tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1 git
+          python -m pip install --upgrade pip uv
+
+      - name: Install official Irodori CPU runtime and strict validation tools
+        run: |
+          git clone --depth 1 https://github.com/Aratako/Irodori-TTS.git Irodori-TTS
+          cd Irodori-TTS
+          uv sync --extra cpu
+          uv pip install faster-whisper rapidfuzz pykakasi scipy soundfile
+
+      - name: Generate one voice with strict ASR rejection
+        env:
+          VOICE_INDEX: ${{ matrix.voice }}
+        run: |
+          cd Irodori-TTS
+          uv run --no-sync python ../tools/build_irodori_clear_voice.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: strict-irodori-clear-voice-${{ matrix.voice }}
+          path: Irodori-TTS/clear_voice_output/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+  package:
+    if: startsWith(github.head_ref, 'tmp/irodori-clear-rebuild-')
+    needs: build-voice
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libsndfile1
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: strict-irodori-clear-voice-*
+          path: downloaded_clear_voices
+      - name: Merge, validate, and create Japanese WAV-only ZIPs
+        run: python tools/package_irodori_clear_final.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-all-8voices
+          path: clear_package_output/Irodori_明瞭再生成版_中高音8声_各10話法_モノラル80WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-mid-4voices
+          path: clear_package_output/Irodori_明瞭再生成版_中高音4声_各10話法_モノラル40WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-high-4voices
+          path: clear_package_output/Irodori_明瞭再生成版_高音4声_各10話法_モノラル40WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-asmr-stereo
+          path: clear_package_output/Irodori_明瞭再生成版_ASMR耳元ステレオ_8声8WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-validation
+          path: |
+            clear_package_output/Irodori_明瞭再生成版_厳格ASR・生成検証資料.zip
+            clear_package_output/最終集計.json
+            clear_package_output/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
