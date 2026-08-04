@@ -1,4 +1,4 @@
-name: Temporary local CPU Irodori v4-Small test
+name: Temporary final Irodori v4 mid-high emotion and KEMAR pack
 
 on:
   pull_request:
@@ -9,10 +9,15 @@ permissions:
   contents: read
 
 jobs:
-  local-cpu-test:
+  build-voice:
     if: startsWith(github.head_ref, 'tmp/irodori-v4-asmr-emotion-')
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        voice: [0, 1, 2, 3, 4, 5, 6, 7]
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     env:
       HF_XET_HIGH_PERFORMANCE: '1'
       HF_HUB_DISABLE_PROGRESS_BARS: '1'
@@ -28,24 +33,92 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg libsndfile1 git
-          python -m pip install --upgrade pip uv pyarrow soundfile huggingface_hub hf_xet
+          python -m pip install --upgrade pip uv
 
-      - name: Install official Irodori runtime for CPU
+      - name: Install official Irodori v4-Small CPU runtime and validation tools
         run: |
           git clone --depth 1 https://github.com/Aratako/Irodori-TTS.git Irodori-TTS
           cd Irodori-TTS
           uv sync --extra cpu
+          uv pip install \
+            pyarrow soundfile huggingface_hub hf_xet faster-whisper rapidfuzz \
+            transformers sentencepiece gradio_client slab h5netcdf netCDF4
 
-      - name: Generate one latest Irodori v4-Small sample locally
+      - name: Build one voice with ten semantically matched styles and three candidates each
+        env:
+          VOICE_INDEX: ${{ matrix.voice }}
         run: |
           cd Irodori-TTS
-          uv run --no-sync python ../tools/test_local_irodori_v3_cpu.py
+          uv run --no-sync python ../tools/build_one_irodori_v4_mid_high_voice.py
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: local-irodori-v4-cpu-test
-          path: Irodori-TTS/local_v4_test_output/
-          if-no-files-found: warn
-          retention-days: 1
+          name: final-irodori-v4-voice-${{ matrix.voice }}
+          path: Irodori-TTS/final_voice_output/voice_${{ matrix.voice }}/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+  package:
+    if: startsWith(github.head_ref, 'tmp/irodori-v4-asmr-emotion-')
+    needs: build-voice
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libsndfile1
+          python -m pip install --upgrade soundfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: final-irodori-v4-voice-*
+          path: downloaded_final_voices
+      - name: Merge, validate and create Windows-compatible Japanese ZIPs
+        run: python tools/package_irodori_v4_mid_high_final.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-irodori-v4-mid-high-mono-all
+          path: final_package_output/Irodori_v4_中高音8声_各10話法_台詞感情一致_透明スタジオ原音_WAVのみ_日本語互換.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-irodori-v4-mid-mono
+          path: final_package_output/Irodori_v4_中高音4声_各10話法_台詞感情一致_透明スタジオ原音_WAVのみ_日本語互換.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-irodori-v4-high-mono
+          path: final_package_output/Irodori_v4_高音4声_各10話法_台詞感情一致_透明スタジオ原音_WAVのみ_日本語互換.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-irodori-v4-kemar-binaural
+          path: final_package_output/Irodori_v4_中高音8声_各10話法_KEMARバイノーラル版_WAVのみ_日本語互換.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-irodori-v4-validation
+          path: |
+            final_package_output/Irodori_v4_中高音8声_生成・選抜・音質検証資料.zip
+            final_package_output/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 3
           compression-level: 0
