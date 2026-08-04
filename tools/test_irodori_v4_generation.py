@@ -35,7 +35,7 @@ for out_index, source_index in enumerate((20, 29, 112), 1):
     sf.write(path, wav, sr, subtype="PCM_16")
     ref_paths.append(path)
 
-client = Client("Aratako/Irodori-TTS-v4-Small-Demo", verbose=True)
+client = Client("Aratako/Irodori-TTS-v4-Small-Demo", verbose=True, download_files=str(OUT / "downloads"))
 text = "ん……ごめん、まだちょっと眠くて。あと五分だけ、このままでいさせて……🥱"
 caption = (
     "若い成人の中高音で、やわらかく丸い声質。"
@@ -74,16 +74,14 @@ result = client.predict(
     api_name="/gradio_inference",
 )
 
+endpoint = next(ep for ep in client.endpoints.values() if getattr(ep, "api_name", None) == "/gradio_inference")
 serialized = []
 for index, value in enumerate(result):
-    if index < 32 and value:
-        src = Path(str(value))
-        if src.exists():
-            dst = GEN / f"candidate_{index + 1:02d}{src.suffix or '.wav'}"
-            shutil.copy2(src, dst)
-            serialized.append(str(dst))
-        else:
-            serialized.append(str(value))
+    if index < 32 and isinstance(value, dict) and value.get("visible") and value.get("value"):
+        local = Path(endpoint._download_file({"path": str(value["value"])}))
+        dst = GEN / f"candidate_{index + 1:02d}.wav"
+        shutil.copy2(local, dst)
+        serialized.append(str(dst))
     elif index == 32:
         (OUT / "run_log.txt").write_text(str(value), encoding="utf-8")
 
