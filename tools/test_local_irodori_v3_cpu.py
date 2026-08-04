@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import io
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -11,7 +10,9 @@ import pyarrow.parquet as pq
 import soundfile as sf
 from huggingface_hub import hf_hub_download
 
-IRODORI_REPO = Path("Irodori-TTS").resolve()
+IRODORI_REPO = Path.cwd().resolve()
+if not (IRODORI_REPO / "irodori_tts").is_dir():
+    IRODORI_REPO = Path("Irodori-TTS").resolve()
 sys.path.insert(0, str(IRODORI_REPO))
 
 from irodori_tts.inference_runtime import (  # noqa: E402
