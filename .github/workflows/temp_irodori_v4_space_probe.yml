@@ -42,7 +42,7 @@ jobs:
             faster-whisper rapidfuzz transformers sentencepiece
 
       - name: Generate latest-Irodori v4 voices, select candidates and package WAVs
-        run: python tools/build_irodori_v4_mid_high_emotion_asmr.py
+        run: python tools/build_irodori_v4_mid_high_emotion_asmr_v2.py
 
       - uses: actions/upload-artifact@v4
         with:
