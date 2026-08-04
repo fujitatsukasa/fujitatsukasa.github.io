@@ -1,4 +1,4 @@
-name: Temporary strict clear Irodori voice-2 recovery
+name: Temporary strict clear Irodori recovery voices 2 3 8
 
 on:
   pull_request:
@@ -9,8 +9,13 @@ permissions:
   contents: read
 
 jobs:
-  recover-voice-2:
+  recover-voices:
     if: startsWith(github.head_ref, 'tmp/irodori-clear-rebuild-')
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        voice: [1, 2, 7]
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -18,7 +23,6 @@ jobs:
       HF_HUB_DISABLE_PROGRESS_BARS: '1'
       TOKENIZERS_PARALLELISM: 'false'
       HF_HUB_DOWNLOAD_TIMEOUT: '300'
-      VOICE_INDEX: '1'
     steps:
       - uses: actions/checkout@v4
 
@@ -39,15 +43,17 @@ jobs:
           uv sync --extra cpu
           uv pip install faster-whisper rapidfuzz pykakasi scipy soundfile
 
-      - name: Recover voice 2 with rate-limit retry and strict reading gate
+      - name: Recover one failed voice with vocabulary-aware ASR and no trailing speech
+        env:
+          VOICE_INDEX: ${{ matrix.voice }}
         run: |
           cd Irodori-TTS
-          uv run --no-sync python ../tools/build_irodori_clear_voice_v5.py
+          uv run --no-sync python ../tools/build_irodori_clear_voice_v6.py
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: strict-irodori-clear-v5-voice-1
+          name: strict-irodori-clear-v6-voice-${{ matrix.voice }}
           path: Irodori-TTS/clear_voice_output/
           if-no-files-found: error
           retention-days: 3
