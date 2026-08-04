@@ -1,0 +1,30 @@
+name: Temporary public Irodori branch cleanup
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: startsWith(github.head_ref, 'tmp/cleanup-public-irodori-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Delete temporary transfer branches
+        run: |
+          git push origin --delete tmp-irodori-variation-transfer-20260804 || true
+          git push origin --delete tmp/irodori-variation-artifact-20260804 || true
+
+      - name: Verify temporary branches are absent
+        run: |
+          test -z "$(git ls-remote --heads origin tmp-irodori-variation-transfer-20260804)"
+          test -z "$(git ls-remote --heads origin tmp/irodori-variation-artifact-20260804)"
+          echo 'Temporary public branches deleted'
