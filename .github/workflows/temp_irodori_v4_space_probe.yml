@@ -1,4 +1,4 @@
-name: Temporary Irodori v4 generation test
+name: Temporary Irodori v4 mid-high emotion aligned ASMR pack
 
 on:
   pull_request:
@@ -9,25 +9,78 @@ permissions:
   contents: read
 
 jobs:
-  test-generation:
+  build-final-packs:
     if: startsWith(github.head_ref, 'tmp/irodori-v4-asmr-emotion-')
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 180
+    env:
+      HF_XET_HIGH_PERFORMANCE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      TOKENIZERS_PARALLELISM: 'false'
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: |
+
+      - name: Install audio, ASR and emotion-selection tools
+        run: |
           sudo apt-get update
-          sudo apt-get install -y libsndfile1
-          python -m pip install --upgrade gradio_client huggingface_hub hf_xet pyarrow soundfile
-      - run: python tools/test_irodori_v4_generation.py
+          sudo apt-get install -y ffmpeg libsndfile1
+          python -m pip install --upgrade pip
+          python - <<'PY'
+          try:
+              import torch
+              print('torch already available', torch.__version__)
+          except Exception:
+              import subprocess, sys
+              subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'torch', '--index-url', 'https://download.pytorch.org/whl/cpu'])
+          PY
+          python -m pip install \
+            gradio_client huggingface_hub hf_xet pyarrow soundfile numpy scipy \
+            faster-whisper rapidfuzz transformers sentencepiece
+
+      - name: Generate latest-Irodori v4 voices, select candidates and package WAVs
+        run: python tools/build_irodori_v4_mid_high_emotion_asmr.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-v4-mid-high-mono-all
+          path: irodori_v4_mid_high_output/Irodori_v4_中高音8声_10話法_台詞感情一致_透明スタジオ原音/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-v4-mid-mono-4voices
+          path: irodori_v4_mid_high_output/Irodori_v4_中高音4声_10話法_台詞感情一致_透明スタジオ原音/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-v4-high-mono-4voices
+          path: irodori_v4_mid_high_output/Irodori_v4_高音4声_10話法_台詞感情一致_透明スタジオ原音/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-v4-mid-high-binaural-like
+          path: irodori_v4_mid_high_output/Irodori_v4_中高音8声_10話法_ASMRバイノーラル風/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: irodori-v4-generation-test
-          path: generation_test_output/
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 0
+          name: irodori-v4-mid-high-validation
+          path: irodori_v4_mid_high_output/検証資料/
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 6
