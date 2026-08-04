@@ -1,4 +1,4 @@
-name: Temporary strict clear Irodori rebuild v2
+name: Temporary strict clear Irodori rebuild v3
 
 on:
   pull_request:
@@ -42,17 +42,17 @@ jobs:
           uv sync --extra cpu
           uv pip install faster-whisper rapidfuzz pykakasi scipy soundfile
 
-      - name: Generate one voice with strict ASR and zero-tail rejection
+      - name: Generate one voice with strict ASR and two-sided utterance alignment
         env:
           VOICE_INDEX: ${{ matrix.voice }}
         run: |
           cd Irodori-TTS
-          uv run --no-sync python ../tools/build_irodori_clear_voice_v2.py
+          uv run --no-sync python ../tools/build_irodori_clear_voice_v3.py
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: strict-irodori-clear-v2-voice-${{ matrix.voice }}
+          name: strict-irodori-clear-v3-voice-${{ matrix.voice }}
           path: Irodori-TTS/clear_voice_output/
           if-no-files-found: error
           retention-days: 3
@@ -73,14 +73,14 @@ jobs:
           sudo apt-get install -y libsndfile1
       - uses: actions/download-artifact@v4
         with:
-          pattern: strict-irodori-clear-v2-voice-*
+          pattern: strict-irodori-clear-v3-voice-*
           path: downloaded_clear_voices
       - name: Merge, validate, and create Japanese WAV-only ZIPs
         run: python tools/package_irodori_clear_final.py
 
       - uses: actions/upload-artifact@v4
         with:
-          name: strict-irodori-clear-v2-all-8voices
+          name: strict-irodori-clear-v3-all-8voices
           path: clear_package_output/Irodori_明瞭再生成版_中高音8声_各10話法_モノラル80WAV_日本語.zip
           if-no-files-found: error
           retention-days: 3
@@ -88,7 +88,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: strict-irodori-clear-v2-mid-4voices
+          name: strict-irodori-clear-v3-mid-4voices
           path: clear_package_output/Irodori_明瞭再生成版_中高音4声_各10話法_モノラル40WAV_日本語.zip
           if-no-files-found: error
           retention-days: 3
@@ -96,7 +96,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: strict-irodori-clear-v2-high-4voices
+          name: strict-irodori-clear-v3-high-4voices
           path: clear_package_output/Irodori_明瞭再生成版_高音4声_各10話法_モノラル40WAV_日本語.zip
           if-no-files-found: error
           retention-days: 3
@@ -104,7 +104,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: strict-irodori-clear-v2-asmr-stereo
+          name: strict-irodori-clear-v3-asmr-stereo
           path: clear_package_output/Irodori_明瞭再生成版_ASMR耳元ステレオ_8声8WAV_日本語.zip
           if-no-files-found: error
           retention-days: 3
@@ -112,7 +112,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: strict-irodori-clear-v2-validation
+          name: strict-irodori-clear-v3-validation
           path: |
             clear_package_output/Irodori_明瞭再生成版_厳格ASR・生成検証資料.zip
             clear_package_output/最終集計.json
