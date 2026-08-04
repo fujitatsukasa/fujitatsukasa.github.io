@@ -1,0 +1,9 @@
+{
+  "candidate_urls": 316,
+  "actual_media_files": 286,
+  "page_snapshots": 6,
+  "failures": 2,
+  "duplicates": 29,
+  "generated_replacement_media": 0,
+  "actual_media_bytes": 64370753
+}
