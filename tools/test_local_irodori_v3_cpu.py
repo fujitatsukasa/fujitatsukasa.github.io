@@ -23,7 +23,7 @@ from irodori_tts.inference_runtime import (  # noqa: E402
     save_wav,
 )
 
-OUT = Path("local_v3_test_output")
+OUT = Path("local_v4_test_output")
 REF = OUT / "references"
 OUT.mkdir(parents=True, exist_ok=True)
 REF.mkdir(parents=True, exist_ok=True)
@@ -51,7 +51,7 @@ for order, row_number in enumerate((20, 29, 112), 1):
     sf.write(path, mono, sample_rate, subtype="PCM_16")
     reference_paths.append(str(path.resolve()))
 
-checkpoint_path = download_hf_checkpoint("Aratako/Irodori-TTS-600M-v3-VoiceDesign")
+checkpoint_path = download_hf_checkpoint("Aratako/Irodori-TTS-v4-Small")
 key = RuntimeKey(
     checkpoint=str(checkpoint_path),
     model_device="cpu",
@@ -118,7 +118,7 @@ result = runtime.synthesize(
     log_fn=messages.append,
 )
 
-output_wav = save_wav(OUT / "中高音・やわらかい・丸い_眠く力の抜けた話し方_v3CPU試験.wav", result.audios[0].float(), result.sample_rate)
+output_wav = save_wav(OUT / "中高音・やわらかい・丸い_眠く力の抜けた話し方_v4CPU試験.wav", result.audios[0].float(), result.sample_rate)
 summary = {
     "checkpoint": str(checkpoint_path),
     "runtime_reloaded": reloaded,
