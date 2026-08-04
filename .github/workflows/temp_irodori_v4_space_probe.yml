@@ -1,4 +1,4 @@
-name: Temporary Irodori v4 Space API probe
+name: Temporary Irodori v4 generation test
 
 on:
   pull_request:
@@ -9,21 +9,25 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  test-generation:
     if: startsWith(github.head_ref, 'tmp/irodori-v4-asmr-emotion-')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install --upgrade gradio_client huggingface_hub
-      - run: python tools/probe_irodori_v4_space.py
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libsndfile1
+          python -m pip install --upgrade gradio_client huggingface_hub hf_xet pyarrow soundfile
+      - run: python tools/test_irodori_v4_generation.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: irodori-v4-space-api-probe
-          path: probe_output/
+          name: irodori-v4-generation-test
+          path: generation_test_output/
           if-no-files-found: error
           retention-days: 1
+          compression-level: 0
