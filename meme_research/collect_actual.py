@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import csv, hashlib, json, re, threading, urllib.parse, zipfile
+import csv, hashlib, json, re, threading, urllib.parse, zipfile, warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
+from urllib3.exceptions import InsecureRequestWarning
 
+warnings.simplefilter('ignore', InsecureRequestWarning)
 BASE=Path(__file__).parent
 OUT=BASE/'output'; MEDIA=OUT/'media'; PAGES=OUT/'pages'; META=OUT/'metadata'
 for d in (MEDIA,PAGES,META): d.mkdir(parents=True,exist_ok=True)
 SRC=json.loads((BASE/'sources.json').read_text(encoding='utf-8'))
-UA={'User-Agent':'Mozilla/5.0 Chrome/131 ActualMemeResearch/1.0','Accept':'*/*'}
+UA={'User-Agent':'Mozilla/5.0 Chrome/131 ActualMemeResearch/2.0','Accept':'*/*'}
 MEDIA_EXT={'.jpg','.jpeg','.png','.gif','.webp','.avif','.svg','.mp4','.webm'}
 CT_EXT={'image/jpeg':'.jpg','image/png':'.png','image/gif':'.gif','image/webp':'.webp','image/avif':'.avif','image/svg+xml':'.svg','video/mp4':'.mp4','video/webm':'.webm'}
 lock=threading.Lock(); seen={}; records=[]; failures=[]; duplicates=[]
@@ -21,10 +23,10 @@ def sha(b):return hashlib.sha256(b).hexdigest()
 def get(url,referer=''):
  h=dict(UA)
  if referer:h['Referer']=referer
- return requests.get(url,headers=h,timeout=(8,20),allow_redirects=True)
+ return requests.get(url,headers=h,timeout=(8,25),allow_redirects=True,verify=False)
 def absu(base,v):return urllib.parse.urljoin(base,v)
-def candidates(base,html):
- soup=BeautifulSoup(html,'html.parser');arr=[]
+def media_candidates(base,text):
+ soup=BeautifulSoup(text,'html.parser');arr=[]
  for m in soup.select('meta[property="og:image"],meta[name="twitter:image"],meta[property="twitter:image"]'):
   if m.get('content'):arr.append((absu(base,m['content']),'meta_image'))
  for tag in soup.find_all(['img','source','video']):
@@ -35,7 +37,9 @@ def candidates(base,html):
    for x in tag['srcset'].split(','):
     v=x.strip().split()[0]
     if v:arr.append((absu(base,v),'srcset'))
- for m in re.findall(r'https?://[^"\'< >\s\\]+?\.(?:jpe?g|png|gif|webp|avif|mp4|webm)(?:\?[^"\'< >\s\\]*)?',html,re.I):arr.append((m.replace('\\/','/'),'embedded'))
+ # Absolute and relative media strings found in HTML/JS/JSON.
+ for m in re.findall(r'https?://[^"\'< >\s\\]+?\.(?:jpe?g|png|gif|webp|avif|mp4|webm)(?:\?[^"\'< >\s\\]*)?',text,re.I):arr.append((m.replace('\\/','/'),'embedded_absolute'))
+ for m in re.findall(r'["\']((?:/|\.\.?/)[^"\']+?\.(?:jpe?g|png|gif|webp|avif|mp4|webm)(?:\?[^"\']*)?)["\']',text,re.I):arr.append((absu(base,m.replace('\\/','/')),'embedded_relative'))
  out=[];ss=set()
  for u,k in arr:
   u=u.replace('&amp;','&')
@@ -64,7 +68,7 @@ def download(t):
  except Exception as e:
   with lock:failures.append({'source_id':sid,'url':url,'referer':referer,'error':repr(e),'label':label})
 
-tasks=[]
+tasks=[]; fetched_text_urls=set()
 for s in SRC['direct_sources']:tasks.append((s['id'],s['label'],s['url'],'direct_reference','',s.get('source_type','direct')))
 for s in SRC['page_sources']:
  try:
@@ -73,9 +77,39 @@ for s in SRC['page_sources']:
   html=r.text;p=PAGES/f"{safe(s['id'])}.html";p.write_text(html,encoding='utf-8',errors='replace')
   records.append({'source_id':s['id'],'label':s['label'],'kind':'page_snapshot','original_url':s['url'],'final_url':r.url,'referer':'','source_type':'html','local_path':p.relative_to(OUT).as_posix(),'mime':'text/html','bytes':len(html.encode()),'sha256':sha(html.encode())})
   folder='netmeme_forest' if s['kind']=='crawl_site' else f"page_sources/{s['id']}"
-  for i,(u,k) in enumerate(candidates(r.url,html),1):
+  for i,(u,k) in enumerate(media_candidates(r.url,html),1):
    if any(x in u.lower() for x in ['favicon','logo.svg','icon-','avatar','emoji','pixel']):continue
    tasks.append((f"{s['id']}_{i:05d}",s['label'],u,folder,r.url,k))
+  if s['kind']=='crawl_site':
+   soup=BeautifulSoup(html,'html.parser');host=urllib.parse.urlparse(r.url).netloc
+   text_urls=[]
+   for tag in soup.find_all(['script','link']):
+    v=tag.get('src') or tag.get('href')
+    if not v:continue
+    u=absu(r.url,v);pu=urllib.parse.urlparse(u);ext=Path(pu.path).suffix.lower()
+    if pu.netloc==host and ext in {'.js','.json','.xml'}:text_urls.append(u)
+   for path in ['/robots.txt','/sitemap.xml','/sitemap_index.xml','/data/memes.json','/memes.json','/images.json','/data.json','/api/memes','/api/images']:
+    text_urls.append(absu(r.url,path))
+   # Breadth-first discovery of text assets, capped to keep the research run deterministic.
+   queue=list(dict.fromkeys(text_urls)); qi=0
+   while qi<len(queue) and qi<200:
+    u=queue[qi]; qi+=1
+    if u in fetched_text_urls:continue
+    fetched_text_urls.add(u)
+    try:
+     rr=get(u,r.url)
+     if rr.status_code!=200:continue
+     ct=rr.headers.get('content-type','').lower()
+     if not any(x in ct for x in ['text','javascript','json','xml']) and Path(urllib.parse.urlparse(rr.url).path).suffix.lower() not in {'.js','.json','.xml','.txt'}:continue
+     text=rr.text; pp=PAGES/'netmeme_assets'/f'{qi:04d}_{safe(Path(urllib.parse.urlparse(rr.url).path).name or "asset")}.txt';pp.parent.mkdir(parents=True,exist_ok=True);pp.write_text(text,encoding='utf-8',errors='replace')
+     for j,(mu,k) in enumerate(media_candidates(rr.url,text),1):tasks.append((f"{s['id']}_asset{qi:04d}_{j:05d}",s['label'],mu,folder,rr.url,k))
+     for m in re.findall(r'["\']([^"\']+\.(?:js|json|xml))(?:\?[^"\']*)?["\']',text,re.I):
+      nu=absu(rr.url,m.replace('\\/','/')); pu=urllib.parse.urlparse(nu)
+      if pu.netloc==host and nu not in fetched_text_urls and len(queue)<200:queue.append(nu)
+     for loc in re.findall(r'<loc>(.*?)</loc>',text,re.I|re.S):
+      nu=loc.strip()
+      if urllib.parse.urlparse(nu).netloc==host and nu not in fetched_text_urls and len(queue)<200:queue.append(nu)
+    except Exception as e:failures.append({'source_id':f"{s['id']}_textasset",'url':u,'referer':r.url,'error':repr(e),'label':s['label']})
  except Exception as e:failures.append({'source_id':s['id'],'url':s['url'],'referer':'','error':repr(e),'label':s['label']})
 uniq={}
 for t in tasks:uniq.setdefault(t[2],t)
@@ -86,9 +120,9 @@ fields=sorted({k for r in records for k in r})
 with (META/'media_manifest.csv').open('w',encoding='utf-8-sig',newline='') as f:w=csv.DictWriter(f,fieldnames=fields);w.writeheader();w.writerows(records)
 for name,data,fields2 in [('failures.csv',failures,['source_id','url','referer','error','label']),('duplicates.csv',duplicates,['source_id','url','duplicate_of','sha256'])]:
  with (META/name).open('w',encoding='utf-8-sig',newline='') as f:w=csv.DictWriter(f,fieldnames=fields2);w.writeheader();w.writerows(data)
-summary={'candidate_urls':len(tasks),'actual_media_files':sum(r.get('kind')=='actual_media' for r in records),'page_snapshots':sum(r.get('kind')=='page_snapshot' for r in records),'failures':len(failures),'duplicates':len(duplicates),'generated_replacement_media':0,'actual_media_bytes':sum(int(r.get('bytes',0)) for r in records if r.get('kind')=='actual_media')}
+summary={'candidate_urls':len(tasks),'actual_media_files':sum(r.get('kind')=='actual_media' for r in records),'page_snapshots':sum(r.get('kind')=='page_snapshot' for r in records),'text_assets_scanned':len(fetched_text_urls),'failures':len(failures),'duplicates':len(duplicates),'generated_replacement_media':0,'actual_media_bytes':sum(int(r.get('bytes',0)) for r in records if r.get('kind')=='actual_media')}
 (META/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
-(OUT/'README_研究用実物ミーム収集.txt').write_text('実際にウェブ上で公開・流通している画像・GIF・掲載ページの研究用収集。モデル生成・自作代替媒体は0件。出典URL、失敗、SHA-256はmetadataへ記録。\n',encoding='utf-8')
+(OUT/'README_研究用実物ミーム収集.txt').write_text('実際にウェブ上で公開・流通している画像・GIF・動画・掲載ページの研究用収集。モデル生成・自作代替媒体は0件。出典URL、失敗、重複、SHA-256はmetadataへ記録。\n',encoding='utf-8')
 zip_path=BASE/'research_meme_actual.zip'
 with zipfile.ZipFile(zip_path,'w',zipfile.ZIP_DEFLATED,compresslevel=3) as z:
  for p in sorted(OUT.rglob('*')):
