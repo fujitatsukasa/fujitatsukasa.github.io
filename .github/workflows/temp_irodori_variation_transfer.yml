@@ -1,0 +1,47 @@
+name: Temporary public Irodori variation transfer
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-commit:
+    if: startsWith(github.head_ref, 'tmp-irodori-variation-transfer-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      HF_XET_HIGH_PERFORMANCE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install audio and Parquet tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1
+          python -m pip install --upgrade pip
+          python -m pip install huggingface_hub hf_xet pyarrow numpy scipy soundfile
+
+      - name: Build 24 distinct voices and three WAV-only ZIPs
+        run: python tools/temp_build_irodori_variation_24x10.py
+
+      - name: Commit temporary public transfer files
+        run: |
+          git config user.name 'Temporary Voice Pack Bot'
+          git config user.email 'actions@github.com'
+          git config http.postBuffer 524288000
+          git add public_transfer
+          git commit -m 'chore: publish temporary voice transfer [skip ci]'
+          git push origin "HEAD:${HEAD_BRANCH}"
