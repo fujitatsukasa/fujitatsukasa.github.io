@@ -32,7 +32,7 @@ jobs:
       - name: Install uv and system audio libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libsndfile1 git
+          sudo apt-get install -y ffmpeg libsndfile1 libportaudio2 git
           python -m pip install --upgrade pip uv
 
       - name: Install official Irodori v4-Small CPU runtime and validation tools
@@ -55,7 +55,7 @@ jobs:
         if: always()
         with:
           name: final-irodori-v4-voice-${{ matrix.voice }}
-          path: Irodori-TTS/final_voice_output/voice_${{ matrix.voice }}/
+          path: Irodori-TTS/final_voice_output/
           if-no-files-found: error
           retention-days: 3
           compression-level: 0
