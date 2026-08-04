@@ -1,0 +1,76 @@
+name: Temporary Irodori mild artifact reduction
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  restore-and-package:
+    if: startsWith(github.head_ref, 'tmp/irodori-gabigabi-restore-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      HF_XET_HIGH_PERFORMANCE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install 48 kHz speech enhancement and audio tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsndfile1 ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install deepfilternet-rs huggingface_hub hf_xet pyarrow numpy scipy soundfile
+
+      - name: Rebuild and conservatively reduce noise-like synthetic artifacts
+        run: python tools/temp_restore_irodori_gabigabi.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-restored-full-24x10
+          path: irodori_restore_output/Irodori_声バリエーション24種_各10本_ガビガビ軽減補正版_WAVのみ.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-restored-low-8x10
+          path: irodori_restore_output/Irodori_低めの声8種_各10本_ガビガビ軽減補正版_WAVのみ.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-restored-mid-8x10
+          path: irodori_restore_output/Irodori_中くらいの声8種_各10本_ガビガビ軽減補正版_WAVのみ.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-restored-high-8x10
+          path: irodori_restore_output/Irodori_高めの声8種_各10本_ガビガビ軽減補正版_WAVのみ.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-restored-validation
+          path: |
+            irodori_restore_output/補正検証台帳.csv
+            irodori_restore_output/補正集計.json
+            irodori_restore_output/SHA256.txt
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
