@@ -8,6 +8,12 @@ on:
       - 'meme_research/sources.json'
       - 'meme_research/collect_actual.py'
       - '.github/workflows/meme-coverage-audit-expanded.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'meme_research/**'
+      - '.github/workflows/meme-coverage-audit-expanded.yml'
   workflow_dispatch:
 
 permissions:
