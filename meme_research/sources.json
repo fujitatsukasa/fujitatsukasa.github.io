@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-08-04",
+  "purpose": "research_collection",
+  "direct_sources": [
+    {"id":"higanjima_maruta","kind":"direct_media","url":"https://cdn-ak.f.st-hatena.com/images/fotolife/c/comicdays_team/20171011/20171011193922.jpg","label":"みんな丸太は持ったな!! 実流通画像","target_name":"higanjima_maruta.jpg","source_type":"direct"},
+    {"id":"hxh_fast_handknife","kind":"direct_media","url":"https://assets.st-note.com/production/uploads/images/143747338/rectangle_large_type_2_48edda5d6849db4eb946a630d82b1bde.jpeg?width=1280","label":"おそろしく速い手刀 実流通画像","target_name":"hxh_fast_handknife.jpg","source_type":"direct"},
+    {"id":"jojo_to_be_continued","kind":"direct_media","url":"https://i.kym-cdn.com/photos/images/original/000/970/863/7ab.jpg","label":"To Be Continued 実流通画像","target_name":"jojo_to_be_continued.jpg","source_type":"direct"},
+    {"id":"kaiji_zawazawa","kind":"direct_media","url":"https://media.tenor.com/aJtdVHfgPXwAAAAd/zawazawa.gif","label":"ざわ…ざわ… 実GIF","target_name":"kaiji_zawazawa.gif","source_type":"direct"},
+    {"id":"kaiji_zawazawa_liveaction","kind":"direct_media","url":"https://media.tenor.com/Pts5CI3c01gAAAAd/tatsuya-fujiwara-zawazawa.gif","label":"ざわ…ざわ… 実写GIF","target_name":"kaiji_zawazawa_liveaction.gif","source_type":"direct"},
+    {"id":"kochikame_all_same","kind":"direct_media","url":"https://img.animanch.com/2019/04/ca25a5e6-s.jpg","label":"全部同じじゃないですか!? 実流通画像","target_name":"kochikame_all_same.jpg","source_type":"direct"},
+    {"id":"mafty_dance_reference","kind":"direct_media","url":"https://img.animanch.com/2021/07/26-18-36-35-600x430.jpg","label":"連邦に反省を促すダンス 実流通画像","target_name":"mafty_dance_reference.jpg","source_type":"direct"},
+    {"id":"onepiece_ship_oriro_collage","kind":"direct_media","url":"https://wazzelife.com/wp-content/uploads/2022/08/FLT9eReaUAAfN3U.jpg.webp","label":"お前もう船降りろ 実コラ","target_name":"onepiece_ship_oriro_collage.webp","source_type":"direct"},
+    {"id":"yamcha_death_pose","kind":"direct_media","url":"https://i.kym-cdn.com/photos/images/original/001/199/191/5d8.png","label":"ヤムチャ死亡ポーズ 実流通画像","target_name":"yamcha_death_pose.png","source_type":"direct"},
+    {"id":"yugioh_jonouchi_dies","kind":"direct_media","url":"https://cimg.kgl-systems.io/camion/files/29386/thumbnail_fNzn.jpg?x=1280","label":"次回、城之内死す 実流通画像","target_name":"yugioh_jonouchi_dies.jpg","source_type":"direct"}
+  ],
+  "page_sources": [
+    {"id":"human_heart_panel","kind":"page_images","url":"https://animesoku.com/archives/40626577.html","label":"人の心とかないんか？ 実漫画パネル"},
+    {"id":"sukisugite_metsu","kind":"page_images","url":"https://fan.books.rakuten.co.jp/articles/3866","label":"好きすぎて滅！ 元曲・MV関連実媒体"},
+    {"id":"fukumaru_meme_source","kind":"page_media","url":"https://joho.o-yake.com/usameme/","label":"僕の勝ちだ お前の負けだ 福丸ミーム実例"},
+    {"id":"fukumaru_meme_source2","kind":"page_media","url":"https://slangverse.jp/fukumaru-meme-original-source/","label":"福丸ミーム元ネタ・実例"},
+    {"id":"modelpress_2026h1","kind":"page_images","url":"https://prtimes.jp/main/html/rd/p/000000109.000015193.html","label":"2026上半期ミーム掲載実画像"},
+    {"id":"simeji_2026h1","kind":"page_images","url":"https://prtimes.jp/main/html/rd/p/000000970.000006410.html","label":"Simeji 2026上半期トレンド掲載実画像"},
+    {"id":"netmeme_forest","kind":"crawl_site","url":"https://netmeme.genshun9.com/","label":"ネットミームの森 実画像一覧"}
+  ]
+}

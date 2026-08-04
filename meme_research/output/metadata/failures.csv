@@ -1,0 +1,3 @@
+﻿source_id,url,referer,error,label
+human_heart_panel,https://animesoku.com/archives/40626577.html,,"SSLError(MaxRetryError(""HTTPSConnectionPool(host='animesoku.com', port=443): Max retries exceeded with url: /archives/40626577.html (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate (_ssl.c:1010)')))""))",人の心とかないんか？ 実漫画パネル
+fukumaru_meme_source2_00054,https://slangverse.jp/wp-content/uploads/2024/12/よくある質問,https://slangverse.jp/fukumaru-meme-original-source/,RuntimeError('HTTP 404'),福丸ミーム元ネタ・実例
