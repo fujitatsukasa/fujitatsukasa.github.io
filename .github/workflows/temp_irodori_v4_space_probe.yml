@@ -1,4 +1,4 @@
-name: Temporary local CPU Irodori v3 VoiceDesign test
+name: Temporary local CPU Irodori v4-Small test
 
 on:
   pull_request:
@@ -36,7 +36,7 @@ jobs:
           cd Irodori-TTS
           uv sync --extra cpu
 
-      - name: Generate one local CPU v3 VoiceDesign sample
+      - name: Generate one latest Irodori v4-Small sample locally
         run: |
           cd Irodori-TTS
           uv run --no-sync python ../tools/test_local_irodori_v3_cpu.py
@@ -44,8 +44,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: local-irodori-v3-cpu-test
-          path: Irodori-TTS/local_v3_test_output/
+          name: local-irodori-v4-cpu-test
+          path: Irodori-TTS/local_v4_test_output/
           if-no-files-found: warn
           retention-days: 1
           compression-level: 0
