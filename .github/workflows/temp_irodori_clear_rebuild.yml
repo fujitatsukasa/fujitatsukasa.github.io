@@ -1,4 +1,4 @@
-name: Temporary strict clear Irodori recovery voices 2 3 8
+name: Temporary strict clear Irodori full rebuild v6
 
 on:
   pull_request:
@@ -9,13 +9,13 @@ permissions:
   contents: read
 
 jobs:
-  recover-voices:
+  build-all-voices:
     if: startsWith(github.head_ref, 'tmp/irodori-clear-rebuild-')
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: 8
       matrix:
-        voice: [1, 2, 7]
+        voice: [0, 1, 2, 3, 4, 5, 6, 7]
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -43,7 +43,7 @@ jobs:
           uv sync --extra cpu
           uv pip install faster-whisper rapidfuzz pykakasi scipy soundfile
 
-      - name: Recover one failed voice with vocabulary-aware ASR and no trailing speech
+      - name: Generate one voice with vocabulary-aware ASR and no trailing speech
         env:
           VOICE_INDEX: ${{ matrix.voice }}
         run: |
@@ -55,6 +55,69 @@ jobs:
         with:
           name: strict-irodori-clear-v6-voice-${{ matrix.voice }}
           path: Irodori-TTS/clear_voice_output/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+  package:
+    if: startsWith(github.head_ref, 'tmp/irodori-clear-rebuild-')
+    needs: build-all-voices
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libsndfile1
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: strict-irodori-clear-v6-voice-*
+          path: downloaded_clear_voices
+      - name: Merge, validate, and create Japanese WAV-only ZIPs
+        run: python tools/package_irodori_clear_final.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-v6-all-8voices
+          path: clear_package_output/Irodori_明瞭再生成版_中高音8声_各10話法_モノラル80WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-v6-mid-4voices
+          path: clear_package_output/Irodori_明瞭再生成版_中高音4声_各10話法_モノラル40WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-v6-high-4voices
+          path: clear_package_output/Irodori_明瞭再生成版_高音4声_各10話法_モノラル40WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-v6-asmr-stereo
+          path: clear_package_output/Irodori_明瞭再生成版_ASMR耳元ステレオ_8声8WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-v6-validation
+          path: |
+            clear_package_output/Irodori_明瞭再生成版_厳格ASR・生成検証資料.zip
+            clear_package_output/最終集計.json
+            clear_package_output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 3
           compression-level: 0
