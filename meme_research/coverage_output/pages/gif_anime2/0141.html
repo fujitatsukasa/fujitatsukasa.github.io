@@ -1,0 +1,1364 @@
+
+(function() {
+
+
+    var CLASS = function() {
+
+        var _sp = 640;
+        var _tb = 768;
+
+        function INIT() {
+            ZOOM();
+        }
+        function RESIZE() {
+            ZOOM();
+        }
+        function SCROLL() {
+
+        }
+
+
+        function ZOOM() {
+        }
+
+        this.TB = TB;
+        function TB() {
+            return ($(window).width() > _sp && $(window).width() <= _tb) ? true : false;
+        }
+
+        this.SP = SP;
+        function SP() {
+            return ($(window).width() <= _sp) ? true : false;
+        }
+
+        function setPagelink() {
+            $("a[href^='#']").each(function() {
+                $(this).click(function() {
+                    var tgt = $(this).attr("href");
+                    setSmoothScroll(tgt);
+                    return false;
+                })
+            })
+        }
+
+        function setSmoothScroll(tgt) {
+            var offset = $(tgt).offset();
+            var offset_top = (SP()) ? offset.top - 20 : offset.top - $("header").height() - 50;
+            var top = (tgt=="#top") ? 0 : offset_top;
+            $("html,body").animate({
+                scrollTop : top + "px"
+            }, 500)
+        }
+
+        this.addMessage = function(tgt, msg) {
+            $(tgt).after('<div class="message"><div class="message_inner">' + msg + '</div>');
+        }
+
+        $(document).ready(INIT);
+        $(window).resize(RESIZE);
+        $(window).scroll(SCROLL);
+
+    }
+
+    var __class = new CLASS();
+
+
+    var DEBUG = function() {
+
+        this.d = function(t) {
+
+            create(t);
+
+        }
+
+        function create(t) {
+            $("#debug").remove();
+            $("body").append('<div id="debug"></div>');
+            $("#debug").css({
+                width:200,
+                height:100,
+                background:"#000",
+                color:"#fff",
+                position:"fixed",
+                left:0,
+                top:0,
+                zIndex:10000
+            })
+            $("#debug").html(t);
+        }
+
+    }
+
+    var __debug = new DEBUG();
+
+
+
+    /* -----------------
+
+            LIST
+
+    -------------------*/
+
+    var LIST = function() {
+
+        var _list_w = 240; // li : width
+        var _list_m = 25;  // li : margin
+        var _ads_w = 240;
+        var _ads_h = 200;
+        var _height = [];
+        var _page = 0;
+        var _page_loading = false;
+        var _page_complete = false;
+        var _ads = 0;
+        var _is_favpage = false; // Favoriteページの時 true
+        var _fav_ary = []; // Favorite登録済みリスト
+        var _layout = "";
+        var _preloader = {}; // preload
+
+
+        function INIT() {
+            initLayout();
+            initLineArray();
+            initAutoLoadGIF();
+            setEvent($("#list #gifs li.gif"));
+            setUlWidth();
+
+            $("#list #gifs li").each(function(i) {
+                if(i==5) addAdv(i);
+                orderList(this)
+            });
+
+            $(document).on("focus", ".adminid", function() {
+                $(this).select();
+            })
+
+            // favoriteページの時
+            // 登録済みfav一覧を配列化して取得する
+            if($(".favorite").length>0) {
+                _is_favpage = true;
+                _fav_ary = __fav.getFavArray();
+
+                // 登録がなかった時
+                if(_fav_ary.length <= 0) {
+                    _is_favpage = false;
+                    __class.addMessage(".favorite header", 'まだFavoriteに登録がありません。<br>各GIFの右上の <img src="' +  __path + 'images/icon_fav.png" alt="FAV ICON" width="17"> をクリックすると<br>このページにお気に入り登録されます。');
+                }
+            }
+
+
+            // Singleページの時は1ページ目から、それ以外の時は2ページ目から読み込みを開始する
+            //（１ページ目はWordrpress->the_post()で取得するので）
+            // Favoriteページは_fav_aryから取得する記事IDを選択するので0からカウントする
+
+            var firstpage = 2;
+            if($(".single").length>0) firstpage = 1;
+            else if(_is_favpage) firstpage = 0;
+
+            loadList(firstpage, true);
+        }
+
+        function RESIZE() {
+            var l = getLineNum();
+            if(l != _height.length) {
+                _height = [];
+                initLineArray();
+                setUlWidth();
+                $("#list #gifs li").each(function() {
+                    var ads = ($(this).hasClass("ads")) ? true : false ;
+                    orderList(this, ads)
+                });
+            }
+        }
+
+        function SCROLL() {
+
+            loadList(_page, false);
+            autoSwitchGIF();
+
+        }
+
+        /* --------------------
+
+                LAYOUT
+
+        -------------------- */
+
+        function initLayout() {
+
+            var layout = localStorage.getItem("layout");
+            if(layout) {
+                changeLayout(layout);
+            }
+
+            if(getLayout()=="none") {
+                changeLayout("belt");
+            }
+
+            // レイアウト変更ボタンを定義
+            $("#layout li a").each(function() {
+                $(this).on("click", function() {
+                    changeLayout($(this).data("layout"));
+                    __modal.toggle($("#ex"), $("#nav_archive"));
+                })
+            })
+
+        }
+
+        function changeLayout(n) {
+
+            if(_layout) {
+                $("." + _layout).removeClass(_layout);
+                $("#layout #layout_" + _layout).removeClass("on");
+
+                // Layoutが変わる時は広告を削除
+                if(_layout!=n) {
+                    $("#gifs .ads").remove();
+                    initLineArray();
+                    $("#list #gifs li").each(function() {
+                        var ads = ($(this).hasClass("ads")) ? true : false ;
+                        orderList(this, ads)
+                    });
+                }
+            }
+            $("#list").addClass(n);
+            $("#layout #layout_" + n).addClass("on");
+            localStorage.setItem("layout", n);
+            _layout = n;
+
+            if(n=="belt") {
+                initAutoLoadGIF();
+            }else {
+                $(".autoloaded").find("a.anigif img").attr("src", $(".autoloaded").find("a.anigif img").data("thumb"));
+                $(".autoloaded").removeClass("autoloaded");
+            }
+        }
+
+        // #listの並び方を取得する
+
+        function getLayout() {
+            if($("#list.belt").length > 0) return "belt";
+            else if($("#list.tile").length > 0) return "tile";
+            else return "none";
+        }
+
+        // ベルトレイアウトならtrue
+
+        function is_belt() {
+            if(getLayout()=="belt") return true;
+            else false;
+        }
+
+        // タイルレイアウトならtrue
+
+        function is_tile() {
+            if(getLayout()=="tile") return true;
+            else false;
+        }
+
+
+        /* --------------
+
+        GIFのリストをAjaxで取得して表示する
+            page:Number 読み込みページ番号
+                        この関数の最後で _page++ するので、通常は _page を引数にする
+            c:Boolean   ページのスクロールによりロードされる場合は false
+                        強制的に読み込ませる場合はtrue
+            callback:Function   モーダルウィンドウのNEXTボタンから読み込まれる場合など
+            //ary : 配列で取得する記事IDを指定する（Favroite用）
+        ----------------*/
+
+        this.loadList = loadList;
+        function loadList(page, c, callback) {
+
+            var tgt = "#list";
+            var tgt2 = "#list";
+
+            var check = false;
+
+            callback = (!callback) ? false : callback;
+
+            if($(window).scrollTop() > getMaxLineHeight() - $(window).height() * 1 && is_tile()) check = true;
+            if($(window).scrollTop() > $("#gifs").height() - $(window).height() * 1 && is_belt()) check = true;
+
+            if(check || c) {
+
+                if(!_page_loading && !_page_complete) {
+
+                    _page_loading = true; // ページ読み込み中はtrue
+
+                    $("#gifs_wrapper").append(getLoadingBox());
+                    $(".gifsbottom").css("top", getMaxLineHeight() + "px");
+
+                    /*
+                        Favoriteページだった場合の処理
+                    */
+                    if(_is_favpage) {
+                        // 記事を取得する配列を切り出す
+                        var fav = _fav_ary.slice(_page*20, (_page+1)*20);
+                        // 取得したい数が20に満たない時は先に_page_completeフラグを立てておく
+                        if(fav.length < 20) _page_complete = true;
+                    }
+
+                    var d = {}; // ajaxで送信するクエリ
+
+                    // favoriteページの時は取得する記事リストの配列を送るので常に1ページ目を取得する
+                    d['n'] = (_is_favpage) ? 1 : page;
+
+                    if(__type=="category") d['c'] = __typeid;
+                    else if(__type=="tag") d['t'] = __typeid;
+                    else if(__type=="search") d['search'] = __typeid;
+
+                    if(_is_favpage) d['postin'] = fav;
+
+                    $.ajax({
+                        type:"POST",
+                        url:__path + "getlist",
+                        dataType:"html",
+                        data:d,
+                        cashe:false,
+                        success : function(r) {
+
+                            // console.log(r);
+
+                            $("#loadingbox").remove();
+
+                            if($(r).find("li").length > 0) {
+
+                                addAdv();
+
+                                $(r).find("li.gif").each(function() {
+                                    $("#list ul#gifs").append(this);
+                                    if(__fav.inFav($(this).data("id"))) $(this).find(".fav").addClass("faved");
+                                    $(this).css("display", "block")
+                                    orderList(this, false);
+                                    setEvent($(this));
+                                })
+
+                                _page = page + 1;
+                                _page_loading = false;
+
+                                // ベルトレイアウトでまだclass="autoloaded"が無ければ
+                                if(is_belt() && $(".autoloaded").length <= 0) searchAutoLoadGif();
+
+                                SCROLL();
+
+                                if(callback != false) new callback();
+
+                            }else {
+
+                                $("#gifs_wrapper").append(getGifOver());
+                                $(".gifsbottom").css("top", getMaxLineHeight() + "px");
+                                _page_complete = true;
+
+                            }
+                        }
+                    })
+                }
+
+            }
+        }
+
+        // ローディングアニメーション
+        function getLoadingBox() {
+
+            var box = '<div id="loadingbox" class="gifsbottom"><ul>';
+            for(var i=0; i<5; i++) box += '<li></li>';
+            box += '</ul>';
+            box += '<span>Loading New Gifs...</span>';
+            box += '</div>';
+
+            return box;
+
+        }
+
+        // これ以上GIF無し
+
+        function getGifOver() {
+            var box = '<div id="gifover" class="gifsbottom">';
+            box += '<span>No More Gifs.</span>';
+            box += '</div>';
+            return box;
+        }
+
+        /* -----------------
+
+            広告
+
+        -------------------*/
+
+        // 公告を設置
+        // position :Number
+        // ##
+        function addAdv(position) {
+            var ads = "";
+            var flag = true;
+            var gaflag = true;
+
+            position = (position) ? position : false;;
+
+            if(checkNotGA()) { // GoogleAdsenseを利用可能なページか確認する
+                gaflag = false;
+                flag = false; // 今はGoolgeAdsensしかないので広告自体のフラグをfalseにしている
+            }
+
+            if(flag) {
+
+                var li = '<li id="ads-' + _ads + '" class="ads block"></li>';
+                if(position) $("#list ul#gifs li:eq(" + position + ")").after(li);
+                else $("#list ul#gifs").append(li);
+
+                ads = getGoogleadsense();
+
+                $("#ads-" + _ads).css("display", "block");
+                $("#ads-" + _ads).html(ads);
+                $("#ads-" + _ads).append('<div class="extend"><p>ADS</p></div>')
+                orderList("#ads-" + _ads, true);
+
+                _ads++;
+
+            }else {
+
+                if(__class.SP()) {
+                    var li = '<li id="ads-' + _ads + '" class="ads block"></li>';
+                    if(position) $("#list ul#gifs li:eq(" + position + ")").after(li);
+                    else $("#list ul#gifs").append(li);
+
+                    ads = getNendAdsens();
+
+                    $("#ads-" + _ads).css("display", "block");
+                    $("#ads-" + _ads).html(ads);
+                    $("#ads-" + _ads).append('<div class="extend"><p>ADS</p></div>')
+                    orderList("#ads-" + _ads, true);
+
+                    _ads++;
+                }
+            }
+        }
+
+
+        // 現在のページがGooglerAdsense利用可能かチェックする
+        this.checkNotGA = checkNotGA;
+        function checkNotGA() {
+
+            // Google Adsenseの広告を表示しないカテゴリーとタグ
+            var notGA = {
+                cat : ["エッチ"],
+                tag : ["無彩限のファントムファールド", "無彩限のファントム・ワールド", "おっぱい"]
+            }
+
+            var check = false;
+            if(__typename!="") check = isArrayMatch(notGA.cat, [__typename]);
+            if(__cats.length > 0) check = isArrayMatch(notGA.cat, __cats);
+            if(__tags.length > 0 && !check) check = isArrayMatch(notGA.tag, __tags);
+            // alert(check);
+            return check;
+
+        }
+
+
+        function isArrayMatch(ary1, ary2) {
+            var bool = false;
+            for(var i=0; i<ary1.length; i++) {
+                if($.inArray(ary1[i], ary2) != -1) {
+                    return true;
+                    break;
+                }
+            }
+            return false;
+        }
+
+
+        function getGoogleadsense() {
+
+            ads = '';
+
+            if(is_belt()) {
+                ads += '<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>';
+                ads += '<ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-3032266283085307" data-ad-slot="4338429295" data-ad-format="auto"></ins>';
+                ads += '<script>(adsbygoogle = window.adsbygoogle || []).push({});</script>';
+            }else {
+                ads += '<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>';
+                ads += '<ins class="adsbygoogle" style="display:inline-block;width:' + _ads_w + 'px;height:' + _ads_h + 'px" data-ad-client="ca-pub-3032266283085307" data-ad-slot="2822255694"></ins>';
+                ads += '<script>(adsbygoogle = window.adsbygoogle || []).push({});</script>';
+            }
+
+            return ads;
+
+        }
+
+        function getNendAdsens() {
+            ads = "";
+            ads += '<script type="text/javascript">';
+            ads += 'var nend_params = {"media":50059,"site":275413,"spot":804105,"type":1,"oriented":1};';
+            ads += '</script>';
+            ads += '<script type="text/javascript" src="https://js1.nend.net/js/nendAdLoader.js"></script>';
+            return ads;
+        }
+
+        /* -----------------
+
+        autoSwitchGIF()
+        スクロールに合わせて画面内に入ったら自動的にサムネイルをGIFに置き換え
+
+        -------------------*/
+
+        function initAutoLoadGIF() {
+            if(is_belt()) {
+
+                var st = $(window).scrollTop();
+                var wh = $(window).height();
+
+                //スクロール量がまだ殆どない時は一番上をロード
+                if(st <= wh) {
+                    autoloadGIF($("#gifs .gif:eq(0)").not(".ads"));
+                }else {
+                    searchAutoLoadGif();
+                }
+            }
+        }
+
+        // まだ.autoloadedのGIFが無い時に、画面中央にあるGIF画像を走査する
+        function searchAutoLoadGif() {
+
+            var st = $(window).scrollTop();
+            var wh = $(window).height();
+            var flag = false;
+
+            $("#gifs li.gif").each(function() {
+
+                var os = $(this).offset();
+                var hh = $(this).height() + parseInt($(this).css("margin-bottom"));
+
+                if(wh / 2 <= os.top - st + hh && wh / 2 >= os.top - st - hh / 2) {
+                    if($(".autoloaded").length <= 0) {
+                        $(this).addClass("autoloaded");
+                        autoloadGIF($(".autoloaded"));
+                        flag = true;
+                        return false;
+                    }
+                }
+            })
+
+            if(!flag) {
+                $("#gifs li.gif:eq(0)").not(".ads").addClass("autoloaded");
+                autoloadGIF($(".autoloaded"));
+            }
+        }
+
+        // スクロールした時.autoloadedが画面中央から外へ出たら前の（次の）GIFにautoloadedを移す
+        function autoSwitchGIF() {
+
+            if(is_belt()) {
+                if($("#gifs .autoloaded").length > 0) {
+
+                    var obj = $("#gifs .autoloaded");
+                    var st = $(window).scrollTop();
+                    var wh = $(window).height();
+                    var os = obj.offset();
+                    var hh = obj.height() + parseInt(obj.css("margin-bottom"));
+
+                    if(st==0) {
+                        // スクロール量が０の時は一番上のGIFを再生する
+                        // removePreloadEvent(obj);
+                        // obj.removeClass("autoloaded");
+                        // alert($(".autoloaded").attr("id") + "******");
+                        // autoloadGIF($("#gifs li:eq(0)").not(".ads"));
+                    }else if(wh / 2 > os.top - st + hh) {
+                        var next = obj.next();
+                        if(next.hasClass("ads")) next = next.next();
+                        if(next.length >= 1) {
+                            removePreloadEvent(obj);
+                            obj.removeClass("autoloaded");
+                            autoloadGIF(next);
+
+                            var next2 = next.next();
+                            if(next2.hasClass("ads")) next2 = next2.next();
+                            autoloadGIF(next2, true);// プリロードのみ
+                        }
+                    }else if(wh / 2 < os.top - st - hh / 2) {
+                        var prev = obj.prev();
+                        if(prev.hasClass("ads")) prev = prev.prev();
+                        if(prev.length >= 1) {
+                            removePreloadEvent(obj);
+                            obj.removeClass("autoloaded");
+                            autoloadGIF(prev);
+
+                            var prev2 = prev.prev();
+                            if(prev2.hasClass("ads")) prev2 = prev2.prev();
+                            autoloadGIF(prev2, true);// プリロードのみ
+                        }
+                    }
+
+                }else {
+
+                    searchAutoLoadGif();
+
+                }
+            }
+        }
+
+        function autoloadGIF(obj, loadOnly) {
+
+            if($("#gifs li.gif").length > 0) {
+                loadOnly = (!loadOnly) ? false : true;
+                if(!loadOnly) obj.addClass("autoloaded");
+                loadTheGif(obj, loadOnly);
+            }
+
+        }
+
+        /* -----------------
+
+        setEvent
+        ￣
+        Listのサムネイルに対するマウスイベント
+            click : モーダルウィンドウでGIFをプレビュー
+            onmouse : サムネイルがGIFに置き換えられる
+
+        -------------------*/
+
+        function setEvent(tgt) {
+
+            tgt.find(".anigif").on("click", function() {
+
+                if(is_belt()) {
+                    location.href = $(this).find("img").data("permalink");
+                }else {
+                    $("#modal").html('<div id="article_bg">&nbsp;</div>');
+                    $("#modal #article_bg").on("click", function() {
+                        __modal.toggle($("#modal"));
+                    })
+                    __modal.toggle($("#modal"));
+                    getGif($(this).parent());
+                }
+
+            })
+
+            tgt.on("mouseover", function() {
+
+                    if(!is_belt()) {
+                        loadTheGif($(this));
+                    }
+
+                })
+                .on("mouseout", function() {
+
+                    if(!is_belt()) {
+                        removePreloadEvent($(this));
+                    }
+
+                })
+        }
+
+        function loadTheGif(obj, loadOnly) {
+
+            var anigif =  obj.find("a.anigif img").data("anigif");
+            loadOnly = (!loadOnly) ? false : true;
+
+            // Init Progressbar
+            obj.find("a.anigif").append('<div class="progressbar"><div class="bar"></div></div>')
+            // obj.find(".progressbar").css({
+            //     marginBottom : -20
+            // })
+            // obj.find(".progressbar").velocity("stop").velocity({
+            //     marginBottom : 0
+            // }, {
+            //     duration : 200
+            // })
+
+            // Load Progressbar
+            var q = new createjs.LoadQueue();
+            var m = [
+                { src :  anigif[0] }
+            ];
+
+            q.addEventListener("progress", function(e) {
+                obj.find(".progressbar .bar").css({
+                    width : e.progress * 100 + "%"
+                })
+                // 50%を超えたらGIFに切り替えOKにする
+                if(!obj.hasClass("loadhalf") && e.progress >= 0.5) {
+                    if(!loadOnly) obj.find("a.anigif img").attr("src", anigif[0]);
+                    obj.addClass("loadhalf");
+                }
+            })
+
+            q.addEventListener("complete", function() {
+                if(!loadOnly) obj.find("a.anigif img").attr("src", anigif[0]);
+                removeProgressbar(obj);
+            })
+
+            q.loadManifest(m);
+
+            _preloader[obj.attr("id")] = {
+                queue : q
+            }
+
+            // console.log(_preloader);
+
+            // obj.on("mouseout", function() {
+            //     if(!is_belt()) {
+            //         q.removeAllEventListeners();
+            //         removeProgressbar(obj);
+            //         obj.find("a.anigif img").attr("src", obj.find("a.anigif img").data("thumb"));
+            //     }
+            //
+            // })
+        }
+
+        function removePreloadEvent(obj) {
+            if(_preloader[obj.attr("id")].queue) {
+                var q = _preloader[obj.attr("id")].queue;
+                q.removeAllEventListeners();
+                delete _preloader[obj.attr("id")];
+            }
+            obj.find("a.anigif img").attr("src", obj.find("a.anigif img").data("thumb"));
+            removeProgressbar(obj);
+        }
+
+        function removeProgressbar(obj) {
+            // obj.find(".progressbar").velocity("stop").velocity({
+            //     marginBottom : -20
+            // }, {
+            //     duration : 100,
+            //     complete : function() {
+            //         obj.find(".progressbar").remove();
+            //     }
+            // })
+            obj.find(".progressbar").remove();
+        }
+
+        function getFilename(src, ext) {
+            var tmp = src.split(".");
+            return "." + tmp[1] + "." + ext;
+        }
+
+        function setGifCSS(img) {
+
+
+            var fullwidth = img.data("fullwidth");
+            var fullheight = img.data("fullheight");
+            var w = 0;
+            var h = 0;
+            if(fullwidth >= $(window).width() * 0.9) {
+                w = $(window).width() * 0.9;
+                h = fullheight * w / fullwidth;
+            }else {
+                w = fullwidth;
+                h = fullheight;
+            }
+            if(fullheight >= $(window).height() * 0.6) {
+                h = $(window).height() * 0.6;
+                w = fullwidth * h / fullheight;
+            }
+
+            var ex_h = $(this).find(".extend").height();
+
+            var w2 = (w>320) ? w : 320;
+
+            $("article#modal #anigif").css({
+                margin : "-" + ((h / 2) + (ex_h)) + "px 0 0 -" + (w2 / 2) + "px",
+                width : w + "px",
+                height : h + "px"
+            })
+            $("article#modal #anigif img").css({
+                width : w + "px",
+                height : h + "px"
+            })
+
+        }
+
+        /* ----------------
+
+        Gif Preview on Modal Window
+
+        ------------------*/
+
+        function getGif(tgt) {
+
+            if($("article#modal #anigif").length > 0) {
+                $("article#modal #anigif").remove();
+            }
+
+            // anigif
+            var id = tgt.data("id");
+            var img = tgt.find("a.anigif img");
+            var anigif = img.data("anigif");
+            var li = '';
+            for(var i=0; i<anigif.length; i++) {
+                var cls = (i==0) ? ' class="display"' : '';
+                li += '<li' + cls + '><a href="' + img.data("permalink") + '"><img src="' + anigif[i] + '"></a></li>';
+            }
+
+            $("article#modal").append('<div id="anigif" data-id="' + id + '"><ul id="anigif_src">' + li + '</ul></div>');
+            setGifCSS(img);
+
+            // changer
+            if(anigif.length>1) {
+                var ol = '<ol class="listnum" id="listnum-' + anigif.length + '">';
+                for(i=0; i<anigif.length; i++) {
+                    var cls = (i==0) ? ' class="on"' : '';
+                    ol += '<li' + cls + '><a href="javascript:void(0);" onclick="change(' + i + ')" id="listnum-n' + (i+1) + '">' + (i+1) + '</a></li>';
+                }
+                ol += '</ol>';
+                $("article#modal #anigif").append(ol);
+            }
+
+            // navlink
+
+            $("article#modal #anigif").append('<div class="navlink clearfix"></div>');
+            if(tgt.prev().attr("id")) {
+                $("article#modal #anigif .navlink").append('<a href="javascript:void(0);" class="next"><img src="' + __path + 'images/next_y.png" alt="NEXT"></a>');
+            }
+            $("article#modal #anigif .navlink").append('<a href="javascript:void(0);" class="prev"><img src="' + __path + 'images/prev_y.png" alt="PREV"></a>');
+
+            __single.setNaviLinkTop();
+            setEventNaviLink(tgt)
+
+            //extends
+            $("article#modal #anigif").append('<div class="extend">' + tgt.find(".extend").html() + "</div>");
+            // $("article#modal #anigif").append('<ul class="sns"></ul>');
+
+
+            $("article#modal #anigif").append('<ul class="exbtns"></ul>');
+
+            // permalink
+            // $("article#modal #anigif .exbtns").append('<li class="expermalink"><a href="' + img.data("permalink") + '"><img src="' + __path +'images/nav_permalink.png" class="pc-inline"><img src="' + __path +'images/link_sp.png" class="mb-inline"></a></li>');
+
+            // facebook
+            $("article#modal #anigif .exbtns").append('<li class="exfacebook"><a href="https://www.facebook.com/sharer/sharer.php?u=' + img.data("permalink") + '" target="_blank"><img src="' + __path + 'images/nav_facebook.png" alt="facebook" class="pc"><img src="' + __path + 'images/facebook_sp.png" alt="facebook" class="mb-inline"></a></li>');
+
+            // twitter
+            $("article#modal #anigif .exbtns").append('<li class="extwitter"><a href="http://twitter.com/share?text=' + img.data("title") + '&url=' + img.data("permalink") + '&hashtags=gif" onClick="window.open(encodeURI(decodeURI(this.href)), \'tweetwindow\', \'width=650, height=470, personalbar=0, toolbar=0, scrollbars=1, sizable=1\'); return false;" rel="nofollow"><img src="' + __path + 'images/nav_twitter.png" alt="ツイート" class="pc-inline"><img src="' + __path + 'images/twitter_sp.png" alt="ツイート" class="sp-inline"></a></li>');
+
+            //fav
+            $("article#modal #anigif .exbtns").append('<li class="exfav"><a href="javascript:void(0);" class="fav" data-id="' + id + '"><img src="' + __path + 'images/nav_fav.png"><span class="fav-' + id + '">' + tgt.find(".fav_count").text() + '</span></a></li>');
+
+            if(__fav.inFav(id)) $("article#modal #anigif .exbtns .fav").addClass("faved");
+            // __fav.sendFav(id, "get");
+
+            // closeModal
+            // $("article#modal #anigif .exbtns").append('<li><a href="javascript:void(0);" id="close_preview"><img src="' + __path + 'images/nav_close2.png"></a></li>');
+            //
+            // $("#close_preview").on("click", function() {
+            //     __modal.closeModal($("#modal"));
+            // })
+
+            $("article#modal").append('<a id="modal_close"><img src="' + __path + 'images/nav_close.png" alt="close"></a >');
+            $("#modal_close").on("click", function() {
+                __modal.closeModal($("#modal"));
+            })
+
+        }
+
+
+        function setEventNaviLink(tgt) {
+
+            // PREV (投稿順で古い方へ)
+            $("article#modal #anigif .navlink .prev").on({
+                click : function() {
+                    // console.log(tgt.next(".gif").attr("class"));
+                    if(tgt.next().hasClass("ads")) {
+                        getGif(tgt.next().next());
+                    }else if(!tgt.next().next().attr("id")) {
+                        loadList(_page, true);
+                        getGif(tgt.next());
+                    }else {
+                        getGif(tgt.next());
+                    }
+                }
+            })
+
+            // NEXT (投稿順で新しい方へ)
+            $("article#modal #anigif .navlink .next").on({
+                click : function() {
+                    if(tgt.prev().hasClass("ads")) {
+                        getGif(tgt.prev().prev());
+                    }else {
+                        getGif(tgt.prev());
+                    }
+
+                }
+            })
+
+        }
+
+        /* -------------
+
+           リストを整列
+
+        ----------------*/
+
+        function orderList(tgt, ads) {
+
+            var n = getLineNum();
+            var i = getMinLine();
+            // var base_w = (ads) ? _list_w : $(tgt).find("img").attr("width");
+            // var base_h = (ads) ? _list_w : $(tgt).find("img").attr("height");
+            var base_w = (ads) ? _ads_w : $(tgt).find("img").data("fullwidth");
+            var base_h = (ads) ? _ads_h : $(tgt).find("img").data("fullheight");
+
+            var w = ( base_w >= _list_w ) ? _list_w : base_w;
+            var h = ( base_w >= _list_w ) ? Math.floor( base_h * _list_w ) / base_w : base_h;
+            // var w = _list_w;
+            // var h = Math.floor( base_h * _list_w ) / base_w;
+
+            $(tgt).css({
+                left : getLineWidth() * i + _list_m,
+                top  : _height[i],
+                display : "block"
+            })
+
+
+            $(tgt).find(".anigif img").width(w);
+            $(tgt).find(".anigif img").height(h);
+
+            _height[i] += ((h - 0) + _list_m * 2 + $(tgt).find(".extend").height()) - 0;
+            // if(!_height[i]) {
+            //     alert($(tgt).attr("id"));
+            //     alert(i + "//" + _height[i]);
+            // }
+
+
+
+        }
+
+        function initLineArray() {
+            var l = getLineNum();
+            for(var i=0; i<l; i++){
+                _height[i] = 0;
+            }
+        }
+
+        function setUlWidth() {
+            $("#list ul#gifs").width( Math.ceil( (_list_w + _list_m * 2) * getLineNum() ) );
+        }
+
+        function getLineNumber() {
+            var quo = Math.floor( $(window).width() / list_w + ( list_m * 2 ) );
+            var odd = $(window).width() % list_w + ( list_m * 2 );
+            return { quo : quo, odd : odd };
+        }
+
+        function getLineWidth() {
+            return _list_w + _list_m * 2;
+        }
+
+        function getLineNum() {
+            return Math.floor( $(window).width() / getLineWidth() );
+        }
+
+        function getMinLine() {
+
+            var r = 0;
+            var m = _height[0];
+            for(var i=0; i<_height.length; i++) {
+                if(!_height[i]) _height[i] = 0;
+                if(_height[i]==0) {
+                    r = i;
+                    break;
+                }else if(m > _height[i]) {
+                    m = _height[i];
+                    r = i;
+                }
+            }
+
+            return r;
+
+        }
+
+        function getMaxLineHeight() {
+
+            var r = 0;
+            var m = _height[0];
+            for(var i=0; i<_height.length; i++) {
+                if(!_height[i]) _height[i] = 0;
+                if(m < _height[i]) {
+                    m = _height[i];
+                }
+            }
+
+            return m;
+        }
+
+        $(document).ready(INIT);
+        $(window).resize(RESIZE);
+        //$(window).scroll(SCROLL);
+        $(window).scroll(SCROLL);
+
+    }
+
+    var __list = new LIST();
+
+
+    /* -----------------
+
+        FAVORITE
+
+    -------------------*/
+
+    var FAVORITE = function() {
+
+        var _this = this;
+
+        function INIT() {
+
+            // FAV CLICK
+            $("#gifs").on("click", ".fav", function() {
+                _this.toggleFav($(this).parent().data("id"), $(this));
+            });
+
+            // FAV INIT
+            $("#gifs .fav").each(function() {
+                if(_this.inFav($(this).parent().data("id"))) $(this).addClass("faved");
+            })
+
+            if($("#single .fav").length>=1) {
+                if(_this.inFav($("#single .fav").data("id"))) $("#single .fav").addClass("faved");
+            }
+
+            $("#modal, #single").on("click", "#anigif .fav", function() {
+                _this.toggleFav($(this).data("id"), $(this));
+            })
+
+        }
+
+        // FAVボタンをクリックした時、FAVをトグルする
+        this.toggleFav = function(id, obj) {
+            if(_this.inFav(id)) _this.removeFav(id, obj);
+            else _this.addFav(id, obj);
+        }
+
+        // idをlocalStrageに追加する
+        this.addFav = function(id, obj) {
+            var fav = getFav();
+            fav = (fav) ? fav : ",";
+            localStorage.setItem('fav', "," + id + fav);
+            // obj.addClass("faved");
+            $(".fav-" + id).parent().addClass("faved");
+            sendFav(id, "increase");
+            animatedFav(obj);
+        }
+
+        // idをlocalStorageから削除する
+        this.removeFav = function(id, obj) {
+            var fav = getFav();
+            localStorage.setItem('fav', fav.split(id+",").join(""));
+            // obj.removeClass("faved");
+            $(".fav-" + id).parent().removeClass("faved");
+            sendFav(id, "reduce");
+        }
+
+        // idが登録済みか調べる
+        this.inFav = function(id) {
+            if(getFav()) {
+                var fav = getFav();
+                return (fav.indexOf("," + id + ",")!=-1) ? true : false;
+            }else {
+                return false;
+            }
+        }
+
+        this.sendFav = sendFav;
+        function sendFav(id, mode) {
+            $.ajax({
+                type : "POST",
+                url : __path + "fav",
+                data : "id=" + id + "&mode=" + mode,
+                dataType : "text",
+                cache : false,
+                success : function(r) {
+                    $(".fav-" + id).text(r);
+                }
+            })
+        }
+
+        // localStorageからFAVを取り出す
+        this.getFav = getFav;
+        function getFav() {
+            var fav = localStorage.getItem('fav');
+            return fav;
+        }
+
+        // カンマ区切りのFAVリストを配列にする
+        this.getFavArray = getFavArray;
+        function getFavArray() {
+            var fav = getFav();
+            var ary = [];
+            if(fav) {
+                ary = fav.split(",");
+                ary = ary.slice(1, ary.length-1);
+            }
+            // var r = [];
+            // // 新しいものからに並び替える
+            // for(var i=ary.length-1; i>=0; i--) {
+            //     r.push(ary[i]);
+            // }
+            // return r;
+            return ary;
+        }
+
+        // WebStorageが使えるか確認する
+        this.isWebStrage = function() {
+            if(('localStorage' in window) && (window.localStorage !== null)) return true;
+            else return false;
+        }
+
+        //FAVをリセットする
+        function resetFav() {
+            localStorage.removeItem("fav");
+        }
+
+
+        /* FAV追加時のアニメーション */
+
+        function animatedFav(obj) {
+            if($("#animatedfav").length >= 1) {
+                $("#animatedfav").remove();
+                _animatedFav(obj);
+            }else {
+                _animatedFav(obj);
+            }
+        }
+
+        function _animatedFav(obj) {
+            $("body").append('<img src="' + __path + 'images/icon_fav.png" alt="" id="animatedfav">');
+            var this_offset = obj.offset();
+            var nav_offset = $("#nav_favorite").offset();
+            var posi = {
+                init : {
+                    left : this_offset.left - $(window).scrollLeft() - 3,
+                    top : this_offset.top - $(window).scrollTop() - 4
+                },
+                end : {
+                    left : nav_offset.left + 8,
+                    top : 0 + 10
+                }
+            };
+            var duration = 600;
+
+            $("#animatedfav").css({
+                opacity : 0.2,
+                left : posi.init.left,
+                top :posi.init.top
+            })
+
+            $("#animatedfav").velocity("stop");
+            $("#animatedfav").velocity({
+                opacity : 1,
+                top : [ posi.end.top, "easeOut"],
+                left : [ posi.end.left,  [ 0.2, 0.4, 0.6, 0.2 ]]
+            }, {
+                duration : duration,
+                complete : function() {
+                    $(this).velocity({
+                        opacity : 0
+                    }, {
+                        durtion : 100,
+                        compelte : $(this).remove()
+                    })
+                }
+            });
+        }
+
+
+        $(document).ready(INIT);
+
+    }
+
+    var __fav = new FAVORITE();
+
+
+    /* -----------------
+
+        MODAL WINDOW
+
+    -------------------*/
+
+    var MODAL = function() {
+
+        var _this = this;
+        this.flag = false;
+        this.obj;
+        this.nav = false;
+        this.src;
+
+
+        this.toggle = function(tgt, nav) {
+
+            nav = (nav) ? nav : false;
+
+            if(_this.flag && tgt.attr("id")==_this.obj.attr("id")) {
+
+                closeModal(_this.obj);
+                if(_this.nav) backNavBtnClose(_this.nav);
+
+            }else if(_this.flag){
+
+                closeModal(_this.obj);
+                if(_this.nav) backNavBtnClose(_this.nav);
+
+                openModal(tgt);
+                if(nav) setNavBtnClose(nav);
+                _this.nav = nav;
+
+            }else {
+
+                openModal(tgt);
+                if(nav) setNavBtnClose(nav);
+                _this.nav = nav;
+
+            }
+
+        }
+
+        this.clickModalBG = function() {
+            $("article #article_bg").on("click", function() {
+                if(_this.flag) _this.toggle($("#modal"));
+            })
+        }
+
+        function openModal(tgt) {
+            mode = tgt.data("mode");
+            switch(mode) {
+                case "display" : tgt.css("display", "block"); break;
+                case "position" : tgt.css("left", "0"); break;
+            }
+
+            _this.obj = tgt;
+            _this.flag = true;
+
+            if(tgt.attr("id")=="search") {
+                $("#search input.search-field").focus();
+            }
+        }
+
+        this.closeModal = closeModal;
+        function closeModal(tgt) {
+            mode = tgt.data("mode");
+            switch(mode) {
+                case "display" : tgt.css("display", "none"); break;
+                case "position" : tgt.css("left", "100%"); break;
+            }
+            // $("#modal").html("");
+            _this.flag = false;
+        }
+
+        function setNavBtnClose(nav) {
+            _this.src = nav.find("img").attr("src");
+            nav.find("img").attr("src", __path + "images/nav_close2.png");
+        }
+
+        function backNavBtnClose(nav) {
+            nav.find("img").attr("src", _this.src);
+        }
+
+    }
+
+    var __modal = new MODAL();
+
+
+
+    /* -----------------
+
+            CATEGORY
+
+    -------------------*/
+
+    var CATEGORY = function() {
+
+        function INIT() {
+            $("#nav_archive").on("click", function() {
+                 __modal.toggle($("#ex"), $(this));
+            })
+            $("#nav_search").on("click", function() {
+                 __modal.toggle($("#search"), $(this));
+            })
+
+        }
+
+        $(document).ready(INIT);
+
+    }
+
+    var __category = new CATEGORY();
+
+
+
+    /* -----------------
+
+            SINGLE
+
+    -------------------*/
+
+
+    var SINGLE = function() {
+
+        function INIT() {
+            /*
+            var img = $("#single #anigif");
+            img.css({
+                margin : "-" + (img.height() / 1.8) + "px 0 0 -" + (img.width() / 2) + "px"
+            })
+            */
+
+            //__list.loadList(1);
+
+            setNaviLinkTop();
+        }
+
+        if($("article#single").length > 0) {
+            $(document).ready(INIT);
+        }
+
+        this.setNaviLinkTop = setNaviLinkTop;
+        function setNaviLinkTop() {
+            var h = $("#anigif .display img").height();
+            $("#anigif .navlink a").css({
+                top : h / 2 - 35,
+                display:"block"
+            })
+        }
+
+
+
+    }
+
+    var __single = new SINGLE();
+
+
+
+    /* -----------------
+
+        SECONDARY
+
+    -------------------*/
+
+    var SECONDARY  = function() {
+
+        // $("#secondary").sidebarfixed({
+        //    scrollContainer : $("#list"),
+        //    defaultMarginTop : 20
+        // })
+
+        if(__list.checkNotGA()) {
+
+            $(".side_ads").css("display", "none");
+        }
+
+         $("#secondary").frix()
+    }
+
+    var __secondary = new SECONDARY();
+
+
+})();
+
+function change(i) {
+    $("#anigif_src .display").css("display", "none");
+    $("#anigif_src .display").removeClass("display");
+    $(".listnum .on").removeClass("on");
+    $("#anigif li:eq(" + i + ")").addClass("display");
+    $("#anigif li:eq(" + i + ")").css("display", "block");
+    $(".listnum li:eq(" + i + ")").addClass("on");
+}

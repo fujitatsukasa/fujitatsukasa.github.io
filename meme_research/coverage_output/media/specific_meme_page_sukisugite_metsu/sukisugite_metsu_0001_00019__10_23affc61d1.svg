@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 240 240">
+  <defs>
+    <style>
+      .cls-1 {
+        clip-path: url(#clippath);
+      }
+
+      .cls-2, .cls-3, .cls-4, .cls-5, .cls-6 {
+        stroke-width: 0px;
+      }
+
+      .cls-2, .cls-7, .cls-8 {
+        fill: none;
+      }
+
+      .cls-3, .cls-9 {
+        fill: #e271aa;
+      }
+
+      .cls-4 {
+        fill: url(#_名称未設定グラデーション_389);
+      }
+
+      .cls-10, .cls-11 {
+        mix-blend-mode: multiply;
+      }
+
+      .cls-12, .cls-7 {
+        stroke-width: 11px;
+      }
+
+      .cls-12, .cls-7, .cls-8, .cls-9 {
+        stroke: #212c49;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .cls-12, .cls-13 {
+        fill: #fff;
+      }
+
+      .cls-8, .cls-9 {
+        stroke-width: 13px;
+      }
+
+      .cls-13 {
+        font-family: NotoSansJP-Thin, 'Noto Sans JP';
+        font-size: 20px;
+        font-variation-settings: 'wght' 100;
+        font-weight: 200;
+      }
+
+      .cls-5 {
+        fill: #ffbdbb;
+      }
+
+      .cls-14 {
+        isolation: isolate;
+      }
+
+      .cls-6 {
+        fill: rgba(255, 255, 255, .5);
+      }
+
+      .cls-11 {
+        opacity: .8;
+      }
+    </style>
+    <radialGradient id="_名称未設定グラデーション_389" data-name="名称未設定グラデーション 389" cx="-1130.74" cy="-2136.41" fx="-1130.74" fy="-2136.41" r="22.36" gradientTransform="translate(5742.51 4004.13) rotate(1.34) scale(4.91 1.75) skewX(.91)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff3f8f"/>
+      <stop offset=".09" stop-color="rgba(255, 61, 145, .94)" stop-opacity=".94"/>
+      <stop offset=".27" stop-color="rgba(255, 58, 152, .79)" stop-opacity=".79"/>
+      <stop offset=".52" stop-color="rgba(255, 53, 164, .55)" stop-opacity=".55"/>
+      <stop offset=".81" stop-color="rgba(255, 46, 179, .22)" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#ff2abe" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="clippath">
+      <rect class="cls-2" x="15.12" y="105" width="208" height="135"/>
+    </clipPath>
+  </defs>
+  <g class="cls-14">
+    <g id="_レイヤー_1" data-name="レイヤー 1">
+      <path class="cls-5" d="M137.12,240c-56.82,0-102.89-46.06-102.89-102.88s46.06-102.89,102.89-102.89,102.88,46.06,102.88,102.89-46.06,102.88-102.88,102.88Z"/>
+      <path class="cls-2" d="M120,225c-56.82,0-102.89-46.06-102.89-102.88S63.18,19.23,120,19.23s102.88,46.06,102.88,102.89-46.06,102.88-102.88,102.88Z"/>
+      <g class="cls-11">
+        <path class="cls-4" d="M-14.9,125.55c2.59,23.61,63.39,42.81,135.73,42.79,72.22.02,128.79-19.13,126.07-42.91-2.43-23.55-63.22-42.75-135.5-42.71-72.29.01-128.88,19.15-126.3,42.83Z"/>
+      </g>
+      <path class="cls-8" d="M120,225.37c-56.82,0-102.89-46.06-102.89-102.88S63.18,19.6,120,19.6s102.88,46.06,102.88,102.89-46.06,102.88-102.88,102.88Z"/>
+      <g class="cls-10">
+        <path class="cls-3" d="M201.98,137.69c-.25,6.93-10.59,12.21-23.09,11.77-12.48-.43-22.43-6.4-22.16-13.37.22-6.91,10.56-12.2,23.05-11.75,12.5.44,22.44,6.4,22.2,13.35Z"/>
+        <path class="cls-3" d="M38.08,137.06c.31,6.93,10.71,12.3,23.21,11.97,12.48-.32,22.36-6.21,22.03-13.19-.28-6.91-10.68-12.28-23.17-11.95-12.49.33-22.38,6.21-22.07,13.16Z"/>
+      </g>
+      <text class="cls-13" transform="translate(89.25 -17.19)"><tspan x="0" y="0">好ハオ</tspan></text>
+      <polyline class="cls-7" points="175.49 123.51 139.69 110.57 175.49 93.94"/>
+      <polyline class="cls-7" points="66.69 123.51 102.49 110.57 66.69 93.94"/>
+      <g class="cls-1">
+        <path class="cls-9" d="M119.41,267.76c-17.33-21.9-42.99-33.6-64.53-47.54-22.84-14.71-28.53-57.02,11.06-70.56,39.61-13.58,53.57,25.03,53.57,25.03,0,0,14.01-38.59,53.59-24.93,39.56,13.65,33.76,55.91,10.95,70.58-21.61,13.89-47.3,25.54-64.64,47.4Z"/>
+      </g>
+      <path class="cls-6" d="M51,186s-.21-25.28,20.13-31,31.87,14,31.87,14c0,0-16.15-8.51-31.03-3-14.89,5.51-20.97,20-20.97,20Z"/>
+      <path class="cls-12" d="M205.62,191.26s-37-16-39.97,8.81c-1.41,11.81,17.97,24.19,29.97,27.19s10-36,10-36Z"/>
+      <path class="cls-12" d="M33.71,191.26s37-16,39.97,8.81c1.41,11.81-17.97,24.19-29.97,27.19s-10-36-10-36Z"/>
+    </g>
+  </g>
+</svg>

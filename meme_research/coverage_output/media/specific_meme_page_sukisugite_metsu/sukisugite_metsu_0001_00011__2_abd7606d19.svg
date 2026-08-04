@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_レイヤー_1" data-name="レイヤー 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #e271aa;
+      }
+
+      .cls-1, .cls-2 {
+        stroke-width: 0px;
+      }
+
+      .cls-3 {
+        stroke-width: 10px;
+      }
+
+      .cls-3, .cls-4, .cls-5 {
+        stroke: #212c49;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .cls-3, .cls-5 {
+        fill: none;
+      }
+
+      .cls-4 {
+        stroke-width: 11px;
+      }
+
+      .cls-4, .cls-6 {
+        fill: #fff;
+      }
+
+      .cls-2 {
+        fill: #f4e08c;
+      }
+
+      .cls-5 {
+        stroke-width: 13px;
+      }
+
+      .cls-6 {
+        font-family: NotoSansJP-Thin, 'Noto Sans JP';
+        font-size: 20px;
+        font-variation-settings: 'wght' 100;
+        font-weight: 200;
+      }
+    </style>
+  </defs>
+  <path class="cls-2" d="M137.12,240c-56.82,0-102.89-46.06-102.89-102.88s46.06-102.89,102.89-102.89,102.88,46.06,102.88,102.89-46.06,102.88-102.88,102.88Z"/>
+  <path class="cls-5" d="M120,222.88c-56.82,0-102.89-46.06-102.89-102.88S63.18,17.12,120,17.12s102.88,46.06,102.88,102.89-46.06,102.88-102.88,102.88Z"/>
+  <g>
+    <path class="cls-1" d="M201.98,130.69c-.25,6.93-10.59,12.21-23.09,11.77-12.48-.43-22.43-6.4-22.16-13.37.22-6.91,10.56-12.2,23.05-11.75,12.5.44,22.44,6.4,22.2,13.35Z"/>
+    <path class="cls-1" d="M38.08,130.06c.31,6.93,10.71,12.3,23.21,11.97,12.48-.32,22.36-6.21,22.03-13.19-.28-6.91-10.68-12.28-23.17-11.95-12.49.33-22.38,6.21-22.07,13.16Z"/>
+  </g>
+  <path class="cls-3" d="M89.09,146.28s10.08,10.5,30.54,10.5,32.38-10.5,32.38-10.5"/>
+  <path class="cls-4" d="M96.13,99.51s-6.13-2.21-17.52-2.21-17.52,2.21-17.52,2.21"/>
+  <path class="cls-4" d="M179.13,99.51s-6.13-2.21-17.52-2.21-17.52,2.21-17.52,2.21"/>
+  <text class="cls-6" transform="translate(99.25 -14.19)"><tspan x="0" y="0">良き</tspan></text>
+</svg>

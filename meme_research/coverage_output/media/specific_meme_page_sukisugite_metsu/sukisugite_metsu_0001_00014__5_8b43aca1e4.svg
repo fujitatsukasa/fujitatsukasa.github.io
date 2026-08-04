@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_レイヤー_1" data-name="レイヤー 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 240 240">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #212c49;
+      }
+
+      .cls-1, .cls-2, .cls-3, .cls-4, .cls-5, .cls-6 {
+        stroke-width: 0px;
+      }
+
+      .cls-2 {
+        fill: #80b1dd;
+      }
+
+      .cls-7 {
+        clip-path: url(#clippath);
+      }
+
+      .cls-3, .cls-8, .cls-9 {
+        fill: none;
+      }
+
+      .cls-4 {
+        fill: #e271aa;
+      }
+
+      .cls-8 {
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 10px;
+      }
+
+      .cls-8, .cls-9 {
+        stroke: #212c49;
+      }
+
+      .cls-5 {
+        fill: #f4e08c;
+      }
+
+      .cls-9 {
+        stroke-miterlimit: 10;
+        stroke-width: 13px;
+      }
+
+      .cls-10 {
+        font-family: NotoSansJP-Thin, 'Noto Sans JP';
+        font-size: 20px;
+        font-variation-settings: 'wght' 100;
+        font-weight: 200;
+      }
+
+      .cls-10, .cls-6 {
+        fill: #fff;
+      }
+    </style>
+    <clipPath id="clippath">
+      <polygon class="cls-3" points="183 83 151 59 90 61 63 78 28.5 0 211.5 0 183 83"/>
+    </clipPath>
+  </defs>
+  <path class="cls-5" d="M151.5,240c-48.88,0-88.5-39.62-88.5-88.5s39.62-88.5,88.5-88.5,88.5,39.62,88.5,88.5-39.62,88.5-88.5,88.5Z"/>
+  <g class="cls-7">
+    <g>
+      <rect class="cls-2" x="46.09" y="-37.34" width="20.61" height="142" transform="translate(-8.94 26.99) rotate(-25.01)"/>
+      <rect class="cls-6" x="63.7" y="-45" width="20.61" height="142" transform="translate(-4.05 33.72) rotate(-25.01)"/>
+      <rect class="cls-4" x="81.3" y="-52.66" width="20.61" height="142" transform="translate(.83 40.44) rotate(-25.01)"/>
+      <rect class="cls-2" x="174.3" y="-37.34" width="20.61" height="142" transform="translate(337.68 142.2) rotate(-154.99)"/>
+      <rect class="cls-6" x="156.7" y="-45" width="20.61" height="142" transform="translate(307.36 120.16) rotate(-154.99)"/>
+      <rect class="cls-4" x="139.09" y="-52.66" width="20.61" height="142" transform="translate(277.03 98.11) rotate(-154.99)"/>
+    </g>
+  </g>
+  <path class="cls-9" d="M120,229.61c-48.05,0-87.01-38.95-87.01-87.01S71.95,55.59,120,55.59s87.01,38.95,87.01,87.01-38.95,87.01-87.01,87.01Z"/>
+  <polygon class="cls-1" points="120 99.24 133.29 126.16 163 130.48 141.5 151.44 146.58 181.03 120 167.06 93.42 181.03 98.5 151.44 77 130.48 106.71 126.16 120 99.24"/>
+  <g>
+    <path class="cls-6" d="M81.28,93.91c-21.32,6.13-26.28,11.09-32.41,32.41-6.13-21.31-11.09-26.28-32.41-32.41,21.32-6.13,26.28-11.09,32.41-32.41,6.13,21.31,11.09,26.28,32.41,32.41Z"/>
+    <path class="cls-8" d="M81.28,93.91c-21.32,6.13-26.28,11.09-32.41,32.41-6.13-21.31-11.09-26.28-32.41-32.41,21.32-6.13,26.28-11.09,32.41-32.41,6.13,21.31,11.09,26.28,32.41,32.41Z"/>
+  </g>
+  <g>
+    <path class="cls-6" d="M220.28,189.91c-21.32,6.13-26.28,11.09-32.41,32.41-6.13-21.31-11.09-26.28-32.41-32.41,21.32-6.13,26.28-11.09,32.41-32.41,6.13,21.31,11.09,26.28,32.41,32.41Z"/>
+    <path class="cls-8" d="M220.28,189.91c-21.32,6.13-26.28,11.09-32.41,32.41-6.13-21.31-11.09-26.28-32.41-32.41,21.32-6.13,26.28-11.09,32.41-32.41,6.13,21.31,11.09,26.28,32.41,32.41Z"/>
+  </g>
+  <text class="cls-10" transform="translate(101.25 -17.19)"><tspan x="0" y="0">優勝</tspan></text>
+</svg>

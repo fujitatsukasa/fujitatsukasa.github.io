@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_レイヤー_1" data-name="レイヤー 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 240 240">
+  <defs>
+    <style>
+      .cls-1 {
+        stroke: #86b2db;
+      }
+
+      .cls-1, .cls-2, .cls-3, .cls-4, .cls-5 {
+        fill: none;
+      }
+
+      .cls-1, .cls-3, .cls-5 {
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .cls-1, .cls-5 {
+        stroke-width: 14px;
+      }
+
+      .cls-6 {
+        clip-path: url(#clippath);
+      }
+
+      .cls-2, .cls-7, .cls-8, .cls-9, .cls-10, .cls-11 {
+        stroke-width: 0px;
+      }
+
+      .cls-7 {
+        fill: #e271aa;
+      }
+
+      .cls-8 {
+        fill: #d380a8;
+      }
+
+      .cls-3, .cls-4 {
+        stroke: #212c49;
+        stroke-width: 13px;
+      }
+
+      .cls-4 {
+        stroke-miterlimit: 10;
+      }
+
+      .cls-12 {
+        font-family: NotoSansJP-Thin, 'Noto Sans JP';
+        font-size: 20px;
+        font-variation-settings: 'wght' 100;
+        font-weight: 200;
+      }
+
+      .cls-12, .cls-10 {
+        fill: #fff;
+      }
+
+      .cls-9 {
+        fill: #b3d8f4;
+      }
+
+      .cls-5 {
+        stroke: #e271aa;
+      }
+
+      .cls-11 {
+        fill: #86b2db;
+      }
+    </style>
+    <clipPath id="clippath">
+      <polyline class="cls-2" points="82.56 89.41 7.38 233 158.01 184.52 131 175 87 121 82.56 89.41"/>
+    </clipPath>
+  </defs>
+  <path class="cls-9" d="M23,233L106.56,72s94.83,10.87,89.2,124.46L23,233Z"/>
+  <g class="cls-6">
+    <g>
+      <polygon class="cls-10" points="82.78 88.85 7.6 232.44 158 185 82.78 88.85"/>
+      <polygon class="cls-11" points="56.26 218.13 40.32 224.45 24.85 185.9 38.53 173.47 56.26 218.13"/>
+      <polygon class="cls-7" points="94.27 210.83 78.33 217.16 49 136 59 116 94.27 210.83"/>
+      <polygon class="cls-11" points="127.55 194.61 111.61 200.94 73 96 85.66 82.97 127.55 194.61"/>
+      <polygon class="cls-8" points="166.41 186.46 150.47 192.79 123.87 126.18 141.95 137.1 166.41 186.46"/>
+    </g>
+  </g>
+  <path class="cls-1" d="M168.26,8.7s20.86,13.67,9.69,35.42c-11.17,21.75-17.87,21.02-24.97,19.49-17.08-3.69-19.6-24.9,0-27.3,24.97-3.06,22.74,38.26,22.74,38.26"/>
+  <circle class="cls-7" cx="219.74" cy="44.07" r="11.5"/>
+  <text class="cls-12" transform="translate(66.25 -17.19)"><tspan x="0" y="0">おめでとう</tspan></text>
+  <polygon class="cls-11" points="52.12 33.46 55.9 45.04 62.79 35 74.97 34.98 67.55 25.32 71.3 13.73 59.82 17.81 49.95 10.66 50.29 22.84 40.44 30.01 52.12 33.46"/>
+  <polygon class="cls-7" points="37.43 78.42 32.01 90.03 44.52 87.27 53.89 96.01 55.13 83.26 66.34 77.05 54.6 71.93 52.15 59.35 43.66 68.94 30.93 67.37 37.43 78.42"/>
+  <polygon class="cls-7" points="196.03 192.58 198.74 205.64 207.45 195.55 220.71 197.01 213.8 185.6 219.29 173.45 206.31 176.49 196.44 167.52 195.33 180.8 183.74 187.41 196.03 192.58"/>
+  <ellipse class="cls-4" cx="122.95" cy="135.06" rx="20.58" ry="61.74" transform="translate(-57.77 108.66) rotate(-39.38)"/>
+  <path class="cls-5" d="M90.82,28.41s42.05,19.16,18.42,83.16"/>
+  <path class="cls-5" d="M134.48,152.89s30.44-26.32,82.1-6.32"/>
+  <path class="cls-1" d="M232.08,96.68s-64.84-32.11-103.84,33.89"/>
+  <polyline class="cls-3" points="82.78 88.85 7.38 233 158.23 183.95"/>
+</svg>
