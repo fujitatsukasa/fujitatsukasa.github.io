@@ -1,0 +1,103 @@
+name: Collect Soccer Meme Images Parallel
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.soccer_parallel_trigger/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/collect-soccer-meme-images-parallel.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - batch: 00
+            start: 0
+            end: 40
+          - batch: 01
+            start: 40
+            end: 80
+          - batch: 02
+            start: 80
+            end: 120
+          - batch: 03
+            start: 120
+            end: 160
+          - batch: 04
+            start: 160
+            end: 200
+          - batch: 05
+            start: 200
+            end: 240
+          - batch: 06
+            start: 240
+            end: 253
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reconstruct source list and extract strict collector
+        shell: bash
+        env:
+          START: ${{ matrix.start }}
+          END: ${{ matrix.end }}
+        run: |
+          mkdir -p .collector_tmp artifact work
+          cat meme_research/soccer_collector/sources_00.b64 meme_research/soccer_collector/sources_01.b64 | base64 -d | gzip -d > .collector_tmp/all_sources.csv
+          python - <<'PY'
+          import csv, os
+          s=int(os.environ['START']); e=int(os.environ['END'])
+          with open('.collector_tmp/all_sources.csv',encoding='utf-8-sig',newline='') as f:
+              r=csv.DictReader(f); rows=list(r); fields=r.fieldnames
+          assert len(rows)==253, len(rows)
+          with open('.collector_tmp/sources.csv','w',encoding='utf-8-sig',newline='') as f:
+              w=csv.DictWriter(f,fieldnames=fields); w.writeheader(); w.writerows(rows[s:e])
+          print('batch_rows',s,e,e-s)
+          PY
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/collect-soccer-meme-images.yml').read_text(encoding='utf-8')
+          start="          cat > .collector_tmp/collector.py <<'PY'\n"
+          a=text.index(start)+len(start)
+          b=text.index("\n          PY\n\n      - name: Collect strict actual web images",a)
+          block=text[a:b]
+          lines=[]
+          for line in block.splitlines():
+              lines.append(line[10:] if line.startswith('          ') else line)
+          Path('.collector_tmp/collector.py').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+          PY
+          python -m py_compile .collector_tmp/collector.py
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check requests beautifulsoup4 pillow lxml ddgs
+      - name: Collect batch
+        shell: bash
+        run: |
+          set -o pipefail
+          python .collector_tmp/collector.py 2>&1 | tee artifact/収集ログ_${{ matrix.batch }}.txt
+      - name: Package batch
+        shell: bash
+        run: |
+          cd work
+          zip -r -9 '../artifact/サッカーミーム_実物画像素材_${{ matrix.batch }}.zip' 'サッカーミーム_実物画像素材'
+          cd ..
+          cp 'work/サッカーミーム_実物画像素材/収集サマリー.json' 'artifact/収集サマリー_${{ matrix.batch }}.json'
+          cp 'work/サッカーミーム_実物画像素材/未取得一覧.csv' 'artifact/未取得一覧_${{ matrix.batch }}.csv'
+          cp 'work/サッカーミーム_実物画像素材/実物画像収集台帳.csv' 'artifact/実物画像収集台帳_${{ matrix.batch }}.csv'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: soccer-meme-batch-${{ matrix.batch }}-${{ github.run_id }}
+          path: artifact/
+          retention-days: 3
+          if-no-files-found: error
