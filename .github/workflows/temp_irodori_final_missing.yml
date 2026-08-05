@@ -48,7 +48,7 @@ jobs:
       - name: Regenerate missing or rejected WAVs and package all 8 voices
         run: |
           cd Irodori-TTS
-          uv run --no-sync python ../tools/finish_irodori_final_pack.py
+          uv run --no-sync python ../tools/finish_irodori_final_pack_v2.py
 
       - uses: actions/upload-artifact@v4
         if: always()
