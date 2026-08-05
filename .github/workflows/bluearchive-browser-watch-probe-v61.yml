@@ -1,0 +1,33 @@
+name: Blue Archive browser watch probe v61
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/bluearchive_v61/browser_watch_probe.py
+      - .github/workflows/bluearchive-browser-watch-probe-v61.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python -m pip install --quiet playwright
+          python -m playwright install --with-deps chromium
+      - name: Open and sample competitor video through public frontends
+        run: python research/bluearchive_v61/browser_watch_probe.py
+      - name: Upload browser evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-browser-watch-probe-v61
+          path: artifact_browser_watch_probe_v61
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 2
