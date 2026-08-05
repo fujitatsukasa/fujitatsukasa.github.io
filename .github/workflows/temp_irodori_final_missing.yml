@@ -1,15 +1,20 @@
-name: Temporary Irodori legacy completion (disabled)
+name: Temporary Irodori legacy completion cancellation
 
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: temporary-irodori-legacy-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
   actions: read
 
 jobs:
-  disabled:
+  retire-legacy-run:
     runs-on: ubuntu-latest
-    if: ${{ false }}
     steps:
-      - run: echo 'Superseded by temp_irodori_v4_fresh_matrix.yml'
+      - run: echo 'Legacy completion cancelled; fresh v4-Small matrix is authoritative.'
