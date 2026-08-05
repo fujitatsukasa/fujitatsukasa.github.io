@@ -7,6 +7,25 @@ from typing import Any
 
 import finish_irodori_final_pack as base
 
+# Short, phonetically simple Japanese lines reduce the chance that the model
+# substitutes a nearby word while preserving the requested acting category.
+EASY_LINES = {
+    1: {"text": "ねえ、今日、カフェに行かない？", "short": "今日カフェに行かない"},
+    2: {"text": "こちらを、見てください。", "short": "こちらを見てください"},
+    3: {"text": "ごめん、まだ、眠いの。", "short": "まだ眠いの"},
+    4: {"text": "今日は、少し、つらいの。", "short": "今日は少しつらいの"},
+    5: {"text": "もう、その話は、やめて。", "short": "その話はやめて"},
+    6: {"text": "待って。そこに、誰かいる。", "short": "そこに誰かいる"},
+    7: {"text": "来てくれたんだ。うれしい。", "short": "来てくれてうれしい"},
+    8: {"text": "無理しなくて、いいよ。", "short": "無理しなくていいよ"},
+    9: {"text": "聞こえる？ ゆっくり、力を抜いて。", "short": "ゆっくり力を抜いて"},
+    10: {"text": "ふふっ。ちゃんと、分かってるよ。", "short": "ちゃんと分かってるよ"},
+}
+for style in base.STYLES:
+    update = EASY_LINES[int(style["number"])]
+    style["text"] = update["text"]
+    style["short"] = update["short"]
+
 VOICE_INDEX = int(os.environ["VOICE_INDEX"])
 voice = base.VOICES[VOICE_INDEX]
 
