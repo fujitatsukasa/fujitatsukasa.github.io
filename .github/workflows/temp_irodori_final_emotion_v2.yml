@@ -1,0 +1,53 @@
+name: Temporary Irodori final emotion-consistent v2
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  generate-emotion-voices:
+    if: startsWith(github.head_ref, 'tmp/irodori-final-emotion-v2-')
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        voice: [0, 1, 2, 3, 4, 5, 6, 7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      HF_XET_HIGH_PERFORMANCE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '600'
+      TOKENIZERS_PARALLELISM: 'false'
+      VOICE_INDEX: ${{ matrix.voice }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install current Irodori CPU runtime and validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1 git
+          python -m pip install --upgrade pip uv
+          git clone --depth 1 https://github.com/Aratako/Irodori-TTS.git Irodori-TTS
+          cd Irodori-TTS
+          uv sync --extra cpu
+          uv pip install faster-whisper rapidfuzz pykakasi scipy soundfile
+      - name: Generate one voice with explicit matched acting and strict readability
+        run: |
+          cd Irodori-TTS
+          uv run --no-sync python ../tools/generate_irodori_final_emotion_v2.py
+      - name: Upload actual WAVs and validation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: irodori-final-emotion-v2-voice-${{ matrix.voice }}
+          path: delivery_output/voice_${{ matrix.voice }}/
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
