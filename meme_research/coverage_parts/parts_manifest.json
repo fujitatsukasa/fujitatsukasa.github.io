@@ -1,0 +1,115 @@
+{
+  "parts": [
+    {
+      "part": "research_meme_verified_part_01.zip",
+      "first_file": "README_研究用実物ミーム収集.txt",
+      "uncompressed_bytes": 81580240,
+      "zip_bytes": 81005376,
+      "sha256": "761ed7e2d1a0a5fb107f01ac5c51d93f159ffececb1e95d1c92de34eddf4ae49"
+    },
+    {
+      "part": "research_meme_verified_part_02.zip",
+      "first_file": "media/meme_gallery_kym_coffin_dance/kym_coffin_dance_0001_00050__452.png",
+      "uncompressed_bytes": 81019360,
+      "zip_bytes": 80427813,
+      "sha256": "907a702b1ab1c5a8c37dd505b9d532ae79f32ca30c9fc9c915e5cd0f7d16729f"
+    },
+    {
+      "part": "research_meme_verified_part_03.zip",
+      "first_file": "media/meme_gallery_kym_disaster_girl/kym_disaster_girl_0005_00062__fc8.png",
+      "uncompressed_bytes": 81758447,
+      "zip_bytes": 81382468,
+      "sha256": "ba7e1d71d013ac6a92e5573b6aca96a326a98afb92a99135dbc381b0d3028089"
+    },
+    {
+      "part": "research_meme_verified_part_04.zip",
+      "first_file": "media/meme_gallery_kym_drake/kym_drake_0002_00040__6ee.jpg",
+      "uncompressed_bytes": 81013398,
+      "zip_bytes": 79878295,
+      "sha256": "46100f0e948e237faa8fd5288fffb31cb500590a6970c90dd4882c6f2746a94b"
+    },
+    {
+      "part": "research_meme_verified_part_05.zip",
+      "first_file": "media/meme_gallery_kym_is_this_pigeon/kym_is_this_pigeon_0003_00066__c88.png",
+      "uncompressed_bytes": 81702157,
+      "zip_bytes": 80691936,
+      "sha256": "9c5fc1997df6dca55b0873cb02270749d14e7a0bb304f4d981d9b3442bd29b6a"
+    },
+    {
+      "part": "research_meme_verified_part_06.zip",
+      "first_file": "media/meme_gallery_kym_surprised_pikachu/kym_surprised_pikachu_0002_00056__fce.png",
+      "uncompressed_bytes": 78294634,
+      "zip_bytes": 77421114,
+      "sha256": "158e5a09b5d733d9b116c5ffa3cb6e5ed7c9a0b85e13611d062babb4d3a31572"
+    },
+    {
+      "part": "research_meme_verified_part_07.zip",
+      "first_file": "media/meme_gallery_kym_to_be_continued/kym_to_be_continued_0003_00049__5ea.gif",
+      "uncompressed_bytes": 79792835,
+      "zip_bytes": 79269174,
+      "sha256": "b521afd8effcbbae9b82d22750bfb4c3c1d672553de4325c2f557018abb1b9d8"
+    },
+    {
+      "part": "research_meme_verified_part_08.zip",
+      "first_file": "media/meme_gallery_kym_to_be_continued/kym_to_be_continued_0006_00054__9f6.png",
+      "uncompressed_bytes": 81380902,
+      "zip_bytes": 80003162,
+      "sha256": "781d445314c9bf842be7c94f31e9b86e9381582766eacdc522831d81185454a6"
+    },
+    {
+      "part": "research_meme_verified_part_09.zip",
+      "first_file": "media/specific_meme_page_fukumaru_meme_source/fukumaru_meme_source_0001_00042__e6b19f3d-a0fa-4a53-b9fa-1d9f3d93dd33.png",
+      "uncompressed_bytes": 81739367,
+      "zip_bytes": 77194424,
+      "sha256": "bcd48e43fc7a55a9b903d36baf5f3d200f297223ac306909e0ff4baa807987cb"
+    },
+    {
+      "part": "research_meme_verified_part_10.zip",
+      "first_file": "media/trend_evidence_simeji_2026h1/simeji_2026h1_0001_00026__6410-970-cdac85632de58e93dea0a9f3bf84c105-1366x690.png",
+      "uncompressed_bytes": 81631616,
+      "zip_bytes": 43992542,
+      "sha256": "e3b44d37c6f8f0004c7caf097a9294eaaeb95b28c421afd4f65d7ab0d9656c5f"
+    },
+    {
+      "part": "research_meme_verified_part_11.zip",
+      "first_file": "pages/kym_drake/0003.html",
+      "uncompressed_bytes": 19762095,
+      "zip_bytes": 3878417,
+      "sha256": "4d20baff39c02bedaaaa88cf2d5816c0d4e5ae49d16261c8501a0b06e8f6224a"
+    }
+  ],
+  "summary": {
+    "scope": "listed source universe; not all memes on the internet",
+    "source_definitions": 46,
+    "candidate_media_urls": 6850,
+    "downloaded_actual_media_files": 2963,
+    "likely_actual_meme_media_files": 2323,
+    "page_snapshots": 463,
+    "failures": 3820,
+    "duplicates": 68,
+    "generated_or_self_made_replacement_media": 0,
+    "actual_media_bytes": 766714155,
+    "quality_state_counts": {
+      "DIRECT_ACTUAL_MEME_MEDIA": 8,
+      "ACTUAL_ANIMATED_MEME_OR_REFERENCE": 103,
+      "SMALL_THUMBNAIL_REVIEW": 120,
+      "PAGE_CHROME_OR_LOW_VALUE": 80,
+      "LIKELY_ACTUAL_MEME_MEDIA": 2212,
+      "TREND_EVIDENCE_NOT_MEME_MEDIA": 440
+    },
+    "mime_counts": {
+      "image/jpeg": 1769,
+      "image/gif": 113,
+      "image/png": 991,
+      "image/svg+xml": 72,
+      "image/webp": 3,
+      "video/mp4": 14,
+      "image/x-ms-bmp": 1
+    },
+    "source_coverage": {
+      "COVERED": 31,
+      "EVIDENCE_CAPTURED": 15
+    },
+    "unresolved_source_ids": []
+  }
+}

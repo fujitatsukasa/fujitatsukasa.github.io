@@ -1,0 +1,47 @@
+﻿source_id,label,source_category,page_snapshots,actual_media_files,likely_meme_media_files,matched_terms,expected_terms,coverage_state
+human_heart_panel,人の心とかないんか？ 実漫画パネル,specific_meme_page,1,19,3,,人の心とかないんか,COVERED
+sukisugite_metsu,好きすぎて滅！ 元曲・MV・派生文脈,specific_meme_page,1,127,45,好きすぎて滅,好きすぎて滅 | 〇〇で滅 | 〇〇すぎて滅,COVERED
+fukumaru_meme_source,僕の勝ちだ お前の負けだ 福丸ミーム実例,specific_meme_page,1,84,74,僕の勝ちだ | 福丸,僕の勝ちだ | お前の負けだ | 福丸,COVERED
+fukumaru_meme_source2,福丸ミーム元ネタ・実例,specific_meme_page,1,63,61,お前の負けだ | 僕の勝ちだ | 福丸,僕の勝ちだ | お前の負けだ | 福丸,COVERED
+modelpress_2026h1,モデルプレス流行語大賞2026上半期,trend_evidence,1,5,0,RUDE! | 〇〇で滅 | せやよな | ば・く・れ・つ♡ | びっくりした、〇〇かと思った | タゴサク構文 | フレネミー | ボンドロ | モナキ | 夜の踊り子ミーム | 私！？♡ | ｱｰｳ,ｱｰｳ | せやよな | タゴサク構文 | 〇〇で滅 | ば・く・れ・つ♡ | びっくりした、〇〇かと思った | フレネミー | ボンドロ | モナキ | 夜の踊り子ミーム | RUDE! | 私！？♡,EVIDENCE_CAPTURED
+simeji_2026h1,Simeji 2026上半期トレンド,trend_evidence,1,32,0,好きすぎて滅！,人の心とかないんか？ | 僕の勝ちだ お前の負けだ | 好きすぎて滅！ | ワホー | ガチャ活,EVIDENCE_CAPTURED
+amf_2026h1,JC・JK流行語大賞2026上半期,trend_evidence,1,5,0,setlog | ほんまやでなんでやねん知らんけど | ルッキズム風刺画 | ワホー,ルッキズム風刺画 | setlog | ワホー | ほんまやでなんでやねん知らんけど,EVIDENCE_CAPTURED
+digdig_2026h1,Z・α世代2026上半期トレンド,trend_evidence,1,32,0,,,EVIDENCE_CAPTURED
+fasme_2026h1,fasme 2026上半期トレンド,trend_evidence,1,30,0,好きすぎて滅！ | 爆裂愛してる,好きすぎて滅！ | 爆裂愛してる,EVIDENCE_CAPTURED
+social65db_2026h1,65dB TOKYO 2026上半期SNSトレンド,trend_evidence,1,79,0,,,EVIDENCE_CAPTURED
+alphaz_2026h1_abema,αZ総研2026上半期トレンド解説,trend_evidence,1,52,0,〇〇すぎて滅 | フレネミー | メロい,〇〇すぎて滅 | メロい | フレネミー,EVIDENCE_CAPTURED
+modelpress_2025annual,モデルプレス流行語大賞2025,trend_evidence,1,4,0,イイじゃん | オイラが行くしかねえな | 両手に男でーす,イイじゃん | 両手に男でーす | オイラが行くしかねえな,EVIDENCE_CAPTURED
+simeji_2025annual,Simeji Z世代トレンドアワード2025,trend_evidence,1,43,0,エッホエッホ | ビジュイイじゃん,ビジュイイじゃん | 〇〇で今これ | チャッピー | エッホエッホ,EVIDENCE_CAPTURED
+simeji_2025h1,Simeji 2025上半期トレンド,trend_evidence,1,27,0,,エッホエッホ | ビジュいいじゃん,EVIDENCE_CAPTURED
+zsoken_2025h1,Z総研2025上半期トレンド,trend_evidence,1,40,0,エッホエッホ | ビジュいいじゃん | メロい,エッホエッホ | ビジュいいじゃん | メロい,EVIDENCE_CAPTURED
+digdig_2025h1,Z・α世代2025上半期トレンド,trend_evidence,1,24,0,,,EVIDENCE_CAPTURED
+trepo_2025h1,Trepo 2025上半期トレンド,trend_evidence,1,23,0,,,EVIDENCE_CAPTURED
+line_2025march,LINEリサーチ2025年3月若年流行,trend_evidence,1,6,0,エッホエッホ,エッホエッホ,EVIDENCE_CAPTURED
+zsoken_2025h2,Z総研2025下半期トレンド,trend_evidence,1,38,0,,,EVIDENCE_CAPTURED
+netmeme_forest,ネットミームの森 実画像アーカイブ,meme_archive,14,31,31,,,COVERED
+gif_anime2,gif.anime2 実GIFアーカイブ,gif_archive,349,88,74,,,COVERED
+nico_meme_2025jan,ニコニコ大百科HOTワード由来ミーム記事,meme_article,1,53,48,VIP先生 | いよいよ明日がセンター試験本番ですよ | メルトショック,VIP先生 | メルトショック | いよいよ明日がセンター試験本番ですよ,COVERED
+kym_yamcha,KYM ヤムチャ死亡ポーズ画像ギャラリー,meme_gallery,7,273,230,Yamcha's Death Pose,Yamcha's Death Pose | ヤムチャ死亡ポーズ,COVERED
+kym_omae,KYM お前はもう死んでいる画像ギャラリー,meme_gallery,9,272,268,Omae Wa Mou Shindeiru,Omae Wa Mou Shindeiru | お前はもう死んでいる,COVERED
+kym_to_be_continued,KYM To Be Continued画像ギャラリー,meme_gallery,6,184,177,To Be Continued,To Be Continued,COVERED
+kym_doge,KYM Doge画像ギャラリー,meme_gallery,6,20,20,Doge,Doge,COVERED
+kym_coffin_dance,KYM Coffin Dance画像ギャラリー,meme_gallery,5,127,123,Coffin Dance,Coffin Dance,COVERED
+kym_surprised_pikachu,KYM Surprised Pikachu画像ギャラリー,meme_gallery,5,161,159,Surprised Pikachu,Surprised Pikachu,COVERED
+kym_woman_cat,KYM Woman Yelling at a Cat画像ギャラリー,meme_gallery,6,18,18,Woman Yelling at a Cat,Woman Yelling at a Cat,COVERED
+kym_this_is_fine,KYM This Is Fine画像ギャラリー,meme_gallery,5,154,146,This Is Fine,This Is Fine,COVERED
+kym_distracted_boyfriend,KYM Distracted Boyfriend画像ギャラリー,meme_gallery,6,187,186,Distracted Boyfriend,Distracted Boyfriend,COVERED
+kym_drake,KYM Drakeposting画像ギャラリー,meme_gallery,5,158,158,Drakeposting,Drakeposting,COVERED
+kym_expanding_brain,KYM Expanding Brain画像ギャラリー,meme_gallery,5,159,158,Expanding Brain,Expanding Brain,COVERED
+kym_is_this_pigeon,KYM Is This a Pigeon画像ギャラリー,meme_gallery,5,159,159,Is This a Pigeon,Is This a Pigeon,COVERED
+kym_hide_pain_harold,KYM Hide the Pain Harold画像ギャラリー,meme_gallery,5,15,15,Hide the Pain Harold,Hide the Pain Harold,COVERED
+kym_disaster_girl,KYM Disaster Girl画像ギャラリー,meme_gallery,5,161,160,Disaster Girl,Disaster Girl,COVERED
+higanjima_maruta,みんな丸太は持ったな!! 実流通画像,direct_meme_media,0,1,1,丸太,丸太,COVERED
+hxh_fast_handknife,おそろしく速い手刀 実流通画像,direct_meme_media,0,1,1,おそろしく速い手刀,おそろしく速い手刀,COVERED
+jojo_to_be_continued,To Be Continued 実流通画像,direct_meme_media,0,1,1,To Be Continued,To Be Continued,COVERED
+kaiji_zawazawa,ざわ…ざわ… 実GIF,direct_meme_media,0,1,1,ざわ…ざわ… | ざわざわ,ざわざわ | ざわ…ざわ…,COVERED
+kaiji_zawazawa_liveaction,ざわ…ざわ… 実写GIF,direct_meme_media,0,1,1,ざわ…ざわ… | ざわざわ,ざわざわ | ざわ…ざわ…,COVERED
+kochikame_all_same,全部同じじゃないですか!? 実流通画像,direct_meme_media,0,1,1,全部同じじゃないですか,全部同じじゃないですか,COVERED
+mafty_dance_reference,連邦に反省を促すダンス 実流通画像,direct_meme_media,0,1,1,連邦に反省を促すダンス,連邦に反省を促すダンス | マフティー,COVERED
+onepiece_ship_oriro_collage,お前もう船降りろ 実コラ,direct_meme_media,0,1,1,お前もう船降りろ,お前もう船降りろ,COVERED
+yamcha_death_pose,ヤムチャ死亡ポーズ 実流通画像,direct_meme_media,0,1,1,ヤムチャ死亡ポーズ,ヤムチャ死亡ポーズ | ヤムチャしやがって,COVERED
+yugioh_jonouchi_dies,次回、城之内死す 実流通画像,direct_meme_media,0,1,1,城之内死す,次回城之内死す | 城之内死す,COVERED

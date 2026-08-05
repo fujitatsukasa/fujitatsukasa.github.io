@@ -1,0 +1,34 @@
+{
+  "scope": "listed source universe; not all memes on the internet",
+  "source_definitions": 46,
+  "candidate_media_urls": 6850,
+  "downloaded_actual_media_files": 2963,
+  "likely_actual_meme_media_files": 2323,
+  "page_snapshots": 463,
+  "failures": 3820,
+  "duplicates": 68,
+  "generated_or_self_made_replacement_media": 0,
+  "actual_media_bytes": 766714155,
+  "quality_state_counts": {
+    "DIRECT_ACTUAL_MEME_MEDIA": 8,
+    "ACTUAL_ANIMATED_MEME_OR_REFERENCE": 103,
+    "SMALL_THUMBNAIL_REVIEW": 120,
+    "PAGE_CHROME_OR_LOW_VALUE": 80,
+    "LIKELY_ACTUAL_MEME_MEDIA": 2212,
+    "TREND_EVIDENCE_NOT_MEME_MEDIA": 440
+  },
+  "mime_counts": {
+    "image/jpeg": 1769,
+    "image/gif": 113,
+    "image/png": 991,
+    "image/svg+xml": 72,
+    "image/webp": 3,
+    "video/mp4": 14,
+    "image/x-ms-bmp": 1
+  },
+  "source_coverage": {
+    "COVERED": 31,
+    "EVIDENCE_CAPTURED": 15
+  },
+  "unresolved_source_ids": []
+}
