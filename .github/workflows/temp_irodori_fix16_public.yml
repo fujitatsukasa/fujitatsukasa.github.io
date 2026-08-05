@@ -1,0 +1,122 @@
+name: Temporary Irodori same-16-voices acting repair
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    if: startsWith(github.head_ref, 'tmp/irodori-fix16-public-')
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        voice: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+    env:
+      VOICE_INDEX: ${{ matrix.voice }}
+      HF_XET_HIGH_PERFORMANCE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '600'
+      TOKENIZERS_PARALLELISM: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install official Irodori and validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1 git
+          python -m pip install --upgrade pip uv
+          git clone --depth 1 https://github.com/Aratako/Irodori-TTS.git Irodori-TTS
+          cd Irodori-TTS
+          uv sync --extra cpu
+          uv pip install faster-whisper rapidfuzz pykakasi scipy soundfile huggingface_hub hf_xet pyarrow resemblyzer webrtcvad librosa
+
+      - name: Regenerate ten correctly named and acted lines for one exact original voice
+        run: |
+          cd Irodori-TTS
+          uv run --no-sync python ../tools/generate_irodori_fix16_public.py
+
+      - name: Upload this exact voice and all validation records
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: irodori-fix16-public-voice-${{ matrix.voice }}
+          path: fix16_public_output/voice_*/
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
+
+  package:
+    if: always() && startsWith(github.head_ref, 'tmp/irodori-fix16-public-')
+    needs: generate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install final validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1
+          python -m pip install --upgrade pip soundfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: irodori-fix16-public-voice-*
+          path: downloaded_fix16
+
+      - name: Require every voice, decode every WAV, and create final Japanese ZIPs
+        run: python tools/package_irodori_fix16_public.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: irodori-fix16-public-all160
+          path: fix16_package_output/Irodori_同じ16声_セリフ・演技一致修正版_全160WAV.zip
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: irodori-fix16-public-mid80
+          path: fix16_package_output/Irodori_同じ中くらい8声_セリフ・演技一致修正版_80WAV.zip
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: irodori-fix16-public-high80
+          path: fix16_package_output/Irodori_同じ高め8声_セリフ・演技一致修正版_80WAV.zip
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: irodori-fix16-public-validation
+          path: |
+            fix16_package_output/Irodori_同じ16声_生成・ASR・演技選抜検証資料.zip
+            fix16_package_output/最終集計.json
+            fix16_package_output/SHA256SUMS.txt
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
