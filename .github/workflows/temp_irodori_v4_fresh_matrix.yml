@@ -1,0 +1,104 @@
+name: Temporary fresh Irodori v4-Small 8-voice matrix
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  generate-voice:
+    if: startsWith(github.head_ref, 'tmp/irodori-final-missing-')
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        voice: [0, 1, 2, 3, 4, 5, 6, 7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      HF_XET_HIGH_PERFORMANCE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '600'
+      TOKENIZERS_PARALLELISM: 'false'
+      VOICE_INDEX: ${{ matrix.voice }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install current Irodori v4-Small and validation runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1 git
+          python -m pip install --upgrade pip uv
+          git clone --depth 1 https://github.com/Aratako/Irodori-TTS.git Irodori-TTS
+          cd Irodori-TTS
+          uv sync --extra cpu
+          uv pip install openai-whisper rapidfuzz pykakasi scipy soundfile
+      - name: Generate all ten styles for one voice from a fresh v4-Small anchor
+        run: |
+          cd Irodori-TTS
+          uv run --no-sync python ../tools/generate_irodori_v4_voice_from_scratch.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: irodori-v4-fresh-voice-${{ matrix.voice }}
+          path: |
+            irodori_finish_work/最終モノラル/
+            irodori_finish_work/ASMR耳元ステレオ/
+            irodori_finish_work/検証/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+  package:
+    if: startsWith(github.head_ref, 'tmp/irodori-final-missing-')
+    needs: generate-voice
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install independent final validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1
+          python -m pip install --upgrade pip
+          python -m pip install openai-whisper rapidfuzz pykakasi numpy scipy soundfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: irodori-v4-fresh-voice-*
+          path: downloaded_fresh
+          merge-multiple: true
+      - name: Merge, re-transcribe, validate, and create WAV-only Japanese ZIPs
+        run: python tools/package_irodori_v4_fresh.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-v4-fresh-final-80wav
+          path: irodori_v4_fresh_output/Irodori_v4_中高音8声_各10話法_明瞭再生成版_80WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-v4-fresh-final-asmr
+          path: irodori_v4_fresh_output/Irodori_v4_ASMR耳元ステレオ_8声8WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: irodori-v4-fresh-final-validation
+          path: |
+            irodori_v4_fresh_output/Irodori_v4_明瞭再生成版_検証資料.zip
+            irodori_v4_fresh_output/最終集計.json
+            irodori_v4_fresh_output/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
