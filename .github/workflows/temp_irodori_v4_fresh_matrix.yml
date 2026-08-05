@@ -77,7 +77,7 @@ jobs:
           path: downloaded_fresh
           merge-multiple: true
       - name: Merge, re-transcribe, validate, and create WAV-only Japanese ZIPs
-        run: python tools/package_irodori_v4_fresh.py
+        run: python tools/package_irodori_v4_fresh_v2.py
       - uses: actions/upload-artifact@v4
         with:
           name: irodori-v4-fresh-final-80wav
