@@ -17,7 +17,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Cancel superseded generation attempts
+      - name: Cancel every superseded Irodori generation attempt in this repository
         run: |
           for run_id in \
             30962475427 \
@@ -26,8 +26,13 @@ jobs:
             30963871956 \
             30963872038 \
             30964650354 \
-            30964650358
+            30964650358 \
+            30964698132 \
+            30964698137 \
+            30965061363 \
+            30965270710 \
+            30965270712
           do
             gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/cancel" >/dev/null 2>&1 || true
           done
-          echo 'Superseded Irodori runs cancelled where still active.'
+          echo 'All superseded Irodori runs cancelled where still active.'
