@@ -39,7 +39,7 @@ jobs:
           git clone --depth 1 https://github.com/Aratako/Irodori-TTS.git Irodori-TTS
           cd Irodori-TTS
           uv sync --extra cpu
-          uv pip install faster-whisper rapidfuzz pykakasi scipy soundfile huggingface_hub hf_xet pyarrow resemblyzer webrtcvad librosa
+          uv pip install 'setuptools<81' faster-whisper rapidfuzz pykakasi scipy soundfile huggingface_hub hf_xet pyarrow resemblyzer webrtcvad librosa
 
       - name: Regenerate ten correctly named and acted lines for one exact original voice
         run: |
