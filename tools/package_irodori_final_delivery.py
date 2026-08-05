@@ -105,6 +105,7 @@ def make_zip(source: Path, destination: Path) -> None:
 
 
 def copy_voice_data() -> None:
+    artifact_dirs = [path for path in DOWNLOADED.iterdir() if path.is_dir()]
     for voice_folder in EXPECTED_VOICE_FOLDERS:
         mono_matches = [
             path
@@ -120,6 +121,7 @@ def copy_voice_data() -> None:
             raise RuntimeError(f"{voice_folder}: モノラルWAV {len(mono_matches)} / 10")
         if len(stereo_matches) != 1:
             raise RuntimeError(f"{voice_folder}: 耳元ステレオWAV {len(stereo_matches)} / 1")
+
         mono_destination = MONO_STAGE / voice_folder
         stereo_destination = STEREO_STAGE / voice_folder
         mono_destination.mkdir(parents=True, exist_ok=True)
@@ -129,24 +131,15 @@ def copy_voice_data() -> None:
         for source in sorted(stereo_matches):
             shutil.copy2(source, stereo_destination / source.name)
 
-        validation_roots = [
-            path
-            for path in DOWNLOADED.rglob("検証")
-            if path.is_dir() and voice_folder.split("_")[0] in path.as_posix()
-        ]
-        # The artifact path does not necessarily retain the voice index in the
-        # validation directory. Copy any validation files from the artifact
-        # that also contains this voice's mono folder.
-        mono_parent_artifacts = {path.parents[len(path.parts) - len(DOWNLOADED.parts) - 3] if False else None for path in []}
-        for artifact_dir in DOWNLOADED.iterdir() if DOWNLOADED.exists() else []:
-            if not artifact_dir.is_dir():
+        # Copy validation files from the artifact directory that contains this voice.
+        for artifact_dir in artifact_dirs:
+            if not any(voice_folder in candidate.parts for candidate in artifact_dir.rglob("*.wav")):
                 continue
-            if any(voice_folder in candidate.parts for candidate in artifact_dir.rglob("*.wav")):
-                for validation_file in artifact_dir.rglob("検証/*"):
-                    if validation_file.is_file():
-                        target = VALIDATION_STAGE / voice_folder / validation_file.name
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(validation_file, target)
+            for validation_file in artifact_dir.rglob("検証/*"):
+                if validation_file.is_file():
+                    target = VALIDATION_STAGE / voice_folder / validation_file.name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(validation_file, target)
 
 
 def main() -> None:
