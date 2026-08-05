@@ -1,0 +1,107 @@
+name: Temporary Irodori clear v8 release bridge
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  wait-and-publish:
+    if: startsWith(github.head_ref, 'tmp/irodori-clear-rebuild-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      BUILD_WORKFLOW_FILE: temp_irodori_clear_rebuild.yml
+      RELEASE_TAG: tmp-irodori-clear-v8-20260805
+    steps:
+      - name: Wait for the matching v8 build run
+        run: |
+          set -euo pipefail
+          workflow_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$BUILD_WORKFLOW_FILE" --jq '.id')
+          echo "workflow_id=$workflow_id"
+          run_id=''
+          for i in $(seq 1 90); do
+            run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs?branch=${{ github.head_ref }}&event=pull_request&per_page=30" \
+              --jq ".workflow_runs | map(select(.head_sha == \"$HEAD_SHA\" and .name == \"Temporary strict clear Irodori completed rebuild v8\")) | .[0].id // empty")
+            if [ -n "$run_id" ]; then break; fi
+            echo "matching run not visible yet: $i"
+            sleep 20
+          done
+          test -n "$run_id"
+          echo "RUN_ID=$run_id" >> "$GITHUB_ENV"
+
+          for i in $(seq 1 180); do
+            status=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.status')
+            conclusion=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.conclusion // empty')
+            echo "build status=$status conclusion=$conclusion poll=$i"
+            if [ "$status" = "completed" ]; then
+              test "$conclusion" = "success"
+              exit 0
+            fi
+            sleep 60
+          done
+          echo 'Timed out waiting for the complete build'
+          exit 1
+
+      - name: Download final package artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded publish
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts?per_page=100" > artifacts.json
+          python - <<'PY'
+          import json, os, subprocess
+          data=json.load(open('artifacts.json', encoding='utf-8'))
+          wanted={
+            'strict-irodori-clear-v8-all-8voices',
+            'strict-irodori-clear-v8-mid-4voices',
+            'strict-irodori-clear-v8-high-4voices',
+            'strict-irodori-clear-v8-asmr-stereo',
+            'strict-irodori-clear-v8-validation',
+          }
+          found={}
+          for art in data.get('artifacts',[]):
+            if art.get('name') in wanted and not art.get('expired'):
+              found[art['name']]=art['id']
+          missing=wanted-set(found)
+          if missing:
+            raise SystemExit(f'missing final artifacts: {sorted(missing)}')
+          for name, art_id in found.items():
+            out=f'downloaded/{name}.zip'
+            subprocess.run(['gh','api',f'repos/{os.environ["GITHUB_REPOSITORY"]}/actions/artifacts/{art_id}/zip'],check=True,stdout=open(out,'wb'))
+          PY
+          for z in downloaded/*.zip; do unzip -q "$z" -d publish; done
+          find publish -type f -maxdepth 3 -print
+
+      - name: Verify and publish a temporary prerelease
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib, zipfile
+          root=pathlib.Path('publish')
+          expected=[
+            'Irodori_明瞭再生成版_中高音8声_各10話法_モノラル80WAV_日本語.zip',
+            'Irodori_明瞭再生成版_中高音4声_各10話法_モノラル40WAV_日本語.zip',
+            'Irodori_明瞭再生成版_高音4声_各10話法_モノラル40WAV_日本語.zip',
+            'Irodori_明瞭再生成版_ASMR耳元ステレオ_8声8WAV_日本語.zip',
+            'Irodori_明瞭再生成版_厳格ASR・生成検証資料.zip',
+          ]
+          for name in expected:
+            matches=list(root.rglob(name))
+            if len(matches)!=1: raise SystemExit(f'{name}: found {len(matches)}')
+            with zipfile.ZipFile(matches[0]) as z:
+              bad=z.testzip()
+              if bad: raise SystemExit(f'CRC error {name}: {bad}')
+          PY
+          gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --prerelease \
+            --title 'Temporary Irodori clear v8 WAV packages' \
+            --notes 'Temporary transfer release. Generated and packaged by the strict v8 workflow.'
+          while IFS= read -r -d '' f; do
+            gh release upload "$RELEASE_TAG" "$f" --repo "$GITHUB_REPOSITORY" --clobber
+          done < <(find publish -type f \( -name '*.zip' -o -name 'SHA256SUMS.txt' -o -name '最終集計.json' \) -print0)
