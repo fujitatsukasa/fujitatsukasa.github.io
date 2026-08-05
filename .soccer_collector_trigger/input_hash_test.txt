@@ -1,0 +1,1 @@
+verify bundled soccer collector inputs and run test
