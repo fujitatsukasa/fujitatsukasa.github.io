@@ -1,0 +1,32 @@
+name: Blue Archive v61 SS missing lines
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/bluearchive_v61/generate_v61_ss_missing_line.py
+      - .github/workflows/bluearchive-v61-ss-missing-lines.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  line:
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        index: [94,95,96,97,98,99,100,101,102,103,104,105]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --quiet edge-tts pydub
+      - run: python research/bluearchive_v61/generate_v61_ss_missing_line.py '${{ matrix.index }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v61-ss-line-${{ matrix.index }}
+          path: artifact_v61_ss_line_${{ matrix.index }}
+          if-no-files-found: error
+          retention-days: 2

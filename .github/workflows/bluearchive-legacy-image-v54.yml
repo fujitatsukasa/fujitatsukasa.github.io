@@ -1,0 +1,29 @@
+name: Blue Archive legacy image v54 test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/bluearchive_v54/test_legacy_pollinations.py
+      - .github/workflows/bluearchive-legacy-image-v54.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --quiet requests pillow
+      - run: python research/bluearchive_v54/test_legacy_pollinations.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-legacy-image-v54-test
+          path: artifact_bluearchive_legacy_image_test
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 2

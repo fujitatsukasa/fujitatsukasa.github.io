@@ -1,0 +1,35 @@
+name: Blue Archive final narration v54
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/bluearchive_v54/generate_audio_v54_clean.py
+      - research/bluearchive_v54/generate_audio_v54_patch.py
+      - .github/workflows/bluearchive-audio-v54-final.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  narrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --quiet edge-tts pydub
+      - name: Generate all narration, subtitles and timing tables
+        run: python research/bluearchive_v54/generate_audio_v54_patch.py
+      - name: Upload narration package
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluearchive-audio-v54-final
+          path: artifact_bluearchive_audio_v54_clean
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 2
