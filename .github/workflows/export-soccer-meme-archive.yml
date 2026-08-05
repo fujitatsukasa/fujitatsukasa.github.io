@@ -1,6 +1,10 @@
 name: Export Soccer Meme Actual Archive
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.collector_trigger/**'
   push:
     branches: [main]
     paths:
