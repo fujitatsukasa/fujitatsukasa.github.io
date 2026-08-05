@@ -51,16 +51,16 @@ jobs:
           PY
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check requests beautifulsoup4 pillow lxml ddgs
-      - name: Collect actual web images
+      - name: Collect actual web images - full 253 records
         shell: bash
         env:
-          INPUT_LIMIT: ${{ github.event.inputs.limit || '20' }}
+          INPUT_LIMIT: ${{ github.event.inputs.limit || '0' }}
           IMAGES_PER_MEME: ${{ github.event.inputs.images_per_meme || '1' }}
         run: |
           set -o pipefail
           LIMIT_ARGS=()
           if [ "$INPUT_LIMIT" != "0" ]; then LIMIT_ARGS=(--limit "$INPUT_LIMIT"); fi
-          python .collector_tmp/collector.py --input .collector_tmp/sources.csv --output 'work/サッカーミーム_実物画像素材' --images-per-meme "$IMAGES_PER_MEME" --workers 4 "${LIMIT_ARGS[@]}" 2>&1 | tee artifact/収集ログ.txt
+          python .collector_tmp/collector.py --input .collector_tmp/sources.csv --output 'work/サッカーミーム_実物画像素材' --images-per-meme "$IMAGES_PER_MEME" --workers 6 "${LIMIT_ARGS[@]}" 2>&1 | tee artifact/収集ログ.txt
       - name: Package result
         shell: bash
         run: |
