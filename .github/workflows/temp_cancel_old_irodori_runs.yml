@@ -1,0 +1,24 @@
+name: Temporary cancel superseded Irodori generation runs
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel:
+    if: startsWith(github.head_ref, 'tmp/cancel-old-irodori-runs-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Cancel superseded generation runs
+        run: |
+          for run in 30995240192 30973771038 30972533857 30971222600; do
+            gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$run/cancel" || true
+          done
