@@ -1,0 +1,169 @@
+name: Temporary strict clear Irodori completed rebuild v8
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  warm-cache:
+    if: startsWith(github.head_ref, 'tmp/irodori-clear-rebuild-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HF_XET_HIGH_PERFORMANCE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '300'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore model cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/uv
+          key: irodori-clear-v8-${{ runner.os }}-models
+      - name: Install downloader
+        run: python -m pip install --upgrade huggingface_hub hf_xet faster-whisper
+      - name: Download shared Irodori, codec and Japanese ASR models once
+        run: |
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          repos = [
+              'Aratako/Semantic-DACVAE-Japanese-32dim',
+              'Aratako/Irodori-TTS-600M-v3-VoiceDesign',
+              'Aratako/Irodori-TTS-v4-Small',
+              'Systran/faster-whisper-small',
+          ]
+          for repo in repos:
+              for attempt in range(1, 7):
+                  try:
+                      snapshot_download(repo_id=repo, max_workers=4)
+                      print('downloaded', repo)
+                      break
+                  except Exception as exc:
+                      if attempt == 6:
+                          raise
+                      import time
+                      print('retry', repo, attempt, repr(exc))
+                      time.sleep(attempt * 20)
+          PY
+
+  build-all-voices:
+    if: startsWith(github.head_ref, 'tmp/irodori-clear-rebuild-')
+    needs: warm-cache
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        voice: [0, 1, 2, 3, 4, 5, 6, 7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+    env:
+      HF_XET_HIGH_PERFORMANCE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      TOKENIZERS_PARALLELISM: 'false'
+      HF_HUB_DOWNLOAD_TIMEOUT: '300'
+      HF_HUB_OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore model cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/uv
+          key: irodori-clear-v8-${{ runner.os }}-models
+      - name: Install system audio tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1 git
+          python -m pip install --upgrade pip uv
+      - name: Install official Irodori CPU runtime and validation tools
+        run: |
+          git clone --depth 1 https://github.com/Aratako/Irodori-TTS.git Irodori-TTS
+          cd Irodori-TTS
+          uv sync --extra cpu
+          uv pip install faster-whisper rapidfuzz pykakasi scipy soundfile
+      - name: Generate one complete clear voice set
+        env:
+          VOICE_INDEX: ${{ matrix.voice }}
+        run: |
+          cd Irodori-TTS
+          uv run --no-sync python ../tools/build_irodori_clear_voice_v8.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: strict-irodori-clear-v8-voice-${{ matrix.voice }}
+          path: Irodori-TTS/clear_voice_output/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+  package:
+    if: startsWith(github.head_ref, 'tmp/irodori-clear-rebuild-')
+    needs: build-all-voices
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libsndfile1 ffmpeg
+          python -m pip install --upgrade soundfile numpy
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: strict-irodori-clear-v8-voice-*
+          path: downloaded_clear_voices
+      - name: Merge, validate, and create Japanese WAV-only ZIPs
+        run: python tools/package_irodori_clear_final.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-v8-all-8voices
+          path: clear_package_output/Irodori_明瞭再生成版_中高音8声_各10話法_モノラル80WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-v8-mid-4voices
+          path: clear_package_output/Irodori_明瞭再生成版_中高音4声_各10話法_モノラル40WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-v8-high-4voices
+          path: clear_package_output/Irodori_明瞭再生成版_高音4声_各10話法_モノラル40WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-v8-asmr-stereo
+          path: clear_package_output/Irodori_明瞭再生成版_ASMR耳元ステレオ_8声8WAV_日本語.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-irodori-clear-v8-validation
+          path: |
+            clear_package_output/Irodori_明瞭再生成版_厳格ASR・生成検証資料.zip
+            clear_package_output/最終集計.json
+            clear_package_output/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
