@@ -1,0 +1,190 @@
+name: Capture Soccer Meme Source Pages
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.soccer_capture_trigger/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/capture-soccer-meme-source-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - batch: 00
+            start: 0
+            end: 40
+          - batch: 01
+            start: 40
+            end: 80
+          - batch: 02
+            start: 80
+            end: 120
+          - batch: 03
+            start: 120
+            end: 160
+          - batch: 04
+            start: 160
+            end: 200
+          - batch: 05
+            start: 200
+            end: 240
+          - batch: 06
+            start: 240
+            end: 253
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reconstruct source list and slice batch
+        shell: bash
+        env:
+          START: ${{ matrix.start }}
+          END: ${{ matrix.end }}
+        run: |
+          mkdir -p .capture_tmp artifact work
+          cat meme_research/soccer_collector/sources_00.b64 meme_research/soccer_collector/sources_01.b64 | base64 -d | gzip -d > .capture_tmp/all_sources.csv
+          python - <<'PY'
+          import csv, os
+          s=int(os.environ['START']); e=int(os.environ['END'])
+          with open('.capture_tmp/all_sources.csv',encoding='utf-8-sig',newline='') as f:
+              r=csv.DictReader(f); rows=list(r); fields=r.fieldnames
+          assert len(rows)==253, len(rows)
+          with open('.capture_tmp/sources.csv','w',encoding='utf-8-sig',newline='') as f:
+              w=csv.DictWriter(f,fieldnames=fields); w.writeheader(); w.writerows(rows[s:e])
+          print('batch_rows',s,e,e-s)
+          PY
+      - name: Install browser dependencies
+        run: |
+          python -m pip install --disable-pip-version-check playwright ddgs
+          python -m playwright install --with-deps chromium
+      - name: Write source-page capture script
+        shell: bash
+        run: |
+          cat > .capture_tmp/capture.py <<'PY'
+          from __future__ import annotations
+          import csv, json, os, re, time, unicodedata, urllib.parse
+          from pathlib import Path
+          from ddgs import DDGS
+          from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+
+          def safe(s,n=70):
+              s=unicodedata.normalize('NFKC',s or '')
+              s=re.sub(r'[\\/:*?"<>|\x00-\x1f]','_',s); s=re.sub(r'\s+','_',s).strip(' ._')
+              return (s or '名称なし')[:n]
+          def norm(s):
+              s=unicodedata.normalize('NFKC',s or '').lower()
+              return re.sub(r'[^0-9a-zぁ-んァ-ヶ一-龠]+','',s)
+          def text_search(name,query):
+              q=(query or f'"{name}" サッカー ミーム 元ネタ').strip()
+              try:
+                  rows=list(DDGS().text(q,max_results=12,safesearch='moderate'))
+              except Exception:
+                  rows=[]
+              nn=norm(name)
+              for r in rows:
+                  u=r.get('href') or r.get('url') or ''
+                  title=r.get('title') or ''
+                  body=r.get('body') or ''
+                  if not u.startswith(('http://','https://')): continue
+                  text=norm(title+' '+body+' '+u)
+                  if len(nn)>=3 and nn in text: return u,'TEXT_SEARCH_EXACT',title
+              for r in rows:
+                  u=r.get('href') or r.get('url') or ''
+                  if u.startswith(('http://','https://')): return u,'TEXT_SEARCH_FALLBACK',r.get('title') or ''
+              return '', 'NO_RESULT', ''
+          def accept_cookies(page):
+              labels=['同意する','すべて同意','Accept all','Accept All','I agree','Agree','許可する']
+              for label in labels:
+                  try:
+                      b=page.get_by_role('button',name=re.compile(re.escape(label),re.I)).first
+                      if b.is_visible(timeout=500): b.click(timeout=800); return
+                  except Exception: pass
+          rows=list(csv.DictReader(open('.capture_tmp/sources.csv',encoding='utf-8-sig',newline='')))
+          out=Path('work/サッカーミーム_参照ページ実写キャプチャ'); out.mkdir(parents=True,exist_ok=True)
+          ledger=[]; missing=[]
+          with sync_playwright() as pw:
+              browser=pw.chromium.launch(headless=True,args=['--disable-dev-shm-usage','--no-sandbox'])
+              context=browser.new_context(viewport={'width':1440,'height':900},user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36',locale='ja-JP')
+              for idx,row in enumerate(rows,1):
+                  mid=(row.get('meme_id') or f'M{idx:03d}').strip(); name=(row.get('名称') or mid).strip(); region=(row.get('地域') or '未分類').strip(); prohibited=(row.get('禁止理由') or '').strip()
+                  category='使用禁止・研究用' if prohibited else region
+                  folder=out/category/f'{mid}_{safe(name)}'; folder.mkdir(parents=True,exist_ok=True)
+                  ref=(row.get('参照URL') or '').strip(); query=(row.get('検索クエリ') or '').strip()
+                  target=ref; discovery='REFERENCE_URL'; search_title=''
+                  if not target:
+                      target,discovery,search_title=text_search(name,query)
+                  page=context.new_page(); status=''; title=''; final=''; matched=False
+                  try:
+                      if not target: raise RuntimeError('no_target')
+                      page.goto(target,wait_until='domcontentloaded',timeout=28000)
+                      final=page.url
+                      accept_cookies(page)
+                      page.wait_for_timeout(1200)
+                      title=page.title()
+                      # Try to center the actual term in the captured viewport.
+                      try:
+                          loc=page.get_by_text(name,exact=False).first
+                          if loc.count() and loc.is_visible(timeout=1200):
+                              loc.scroll_into_view_if_needed(timeout=1800); page.wait_for_timeout(400); matched=True
+                      except Exception: pass
+                      if not matched:
+                          try:
+                              h1=page.locator('h1').first
+                              if h1.count() and h1.is_visible(timeout=700): h1.scroll_into_view_if_needed(timeout=1000)
+                          except Exception: pass
+                      file=folder/f'{mid}_参照ページ.png'
+                      page.screenshot(path=str(file),full_page=False)
+                      status='CAPTURED_SOURCE_PAGE'
+                      info={'meme_id':mid,'name':name,'region':region,'status':status,'discovery':discovery,'requested_url':target,'final_url':final,'page_title':title,'term_visible':matched,'search_title':search_title,'rights_status':'RIGHTS_CHECK_REQUIRED','note':'公開ウェブページをブラウザで実写キャプチャ。AI画像生成・再描画なし。'}
+                      (folder/'取得情報.json').write_text(json.dumps(info,ensure_ascii=False,indent=2),encoding='utf-8')
+                      (folder/'キャプチャ説明.txt').write_text(f'ミームID：{mid}\n名称：{name}\n\nこれは元画像をAI生成したものではなく、公開ウェブ上の起源・使用例・解説ページをブラウザで実際にキャプチャした画像です\n\n参照ページ：\n{final}\n\nページ題名：\n{title}\n\n権利状態：\n未確認。研究・参照用。公開・商用利用前に権利者と利用条件を個別確認してください\n',encoding='utf-8')
+                      ledger.append(info|{'file_path':str(file),'category':category})
+                  except Exception as e:
+                      missing.append({'meme_id':mid,'地域':region,'名称':name,'状態':'キャプチャ失敗','参照URL':ref,'検索クエリ':query,'target_url':target,'error':type(e).__name__+': '+str(e)[:180]})
+                  finally:
+                      page.close()
+                  print(f'{idx}/{len(rows)} captured={len(ledger)} failed={len(missing)}',flush=True)
+              browser.close()
+          fields=['meme_id','region','name','category','file_path','status','discovery','requested_url','final_url','page_title','term_visible','search_title','rights_status','note']
+          with (out/'参照ページ収集台帳.csv').open('w',encoding='utf-8-sig',newline='') as f:
+              w=csv.DictWriter(f,fieldnames=fields); w.writeheader(); w.writerows(ledger)
+          mfields=['meme_id','地域','名称','状態','参照URL','検索クエリ','target_url','error']
+          with (out/'未取得一覧.csv').open('w',encoding='utf-8-sig',newline='') as f:
+              w=csv.DictWriter(f,fieldnames=mfields); w.writeheader(); w.writerows(missing)
+          summary={'requested':len(rows),'captured':len(ledger),'failed':len(missing),'generated_images':0,'note':'公開ウェブページの実写キャプチャ。AI画像生成なし。'}
+          (out/'収集サマリー.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(summary,ensure_ascii=False),flush=True)
+          PY
+      - name: Capture source pages
+        shell: bash
+        run: |
+          set -o pipefail
+          python .capture_tmp/capture.py 2>&1 | tee artifact/キャプチャログ_${{ matrix.batch }}.txt
+      - name: Package batch
+        shell: bash
+        run: |
+          cd work
+          zip -r -9 '../artifact/サッカーミーム_参照ページ実写キャプチャ_${{ matrix.batch }}.zip' 'サッカーミーム_参照ページ実写キャプチャ'
+          cd ..
+          cp 'work/サッカーミーム_参照ページ実写キャプチャ/収集サマリー.json' 'artifact/収集サマリー_${{ matrix.batch }}.json'
+          cp 'work/サッカーミーム_参照ページ実写キャプチャ/未取得一覧.csv' 'artifact/未取得一覧_${{ matrix.batch }}.csv'
+          cp 'work/サッカーミーム_参照ページ実写キャプチャ/参照ページ収集台帳.csv' 'artifact/参照ページ収集台帳_${{ matrix.batch }}.csv'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: soccer-meme-page-captures-${{ matrix.batch }}-${{ github.run_id }}
+          path: artifact/
+          retention-days: 3
+          if-no-files-found: error
