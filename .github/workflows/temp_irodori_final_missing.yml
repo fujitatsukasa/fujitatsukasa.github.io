@@ -1,81 +1,15 @@
-name: Temporary Irodori final missing-file completion
+name: Temporary Irodori legacy completion (disabled)
 
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   contents: read
   actions: read
 
 jobs:
-  finish-and-package:
-    if: startsWith(github.head_ref, 'tmp/irodori-final-missing-')
+  disabled:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
-    env:
-      HF_XET_HIGH_PERFORMANCE: '1'
-      HF_HUB_DISABLE_PROGRESS_BARS: '1'
-      HF_HUB_DOWNLOAD_TIMEOUT: '600'
-      TOKENIZERS_PARALLELISM: 'false'
+    if: ${{ false }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Download the strict partial voice artifacts from the previous generation run
-        uses: actions/download-artifact@v4
-        with:
-          pattern: strict-irodori-clear-v6-voice-*
-          path: previous_artifacts
-          repository: fujitatsukasa/fujitatsukasa.github.io
-          run-id: 30908681323
-          github-token: ${{ github.token }}
-
-      - name: Install Irodori and validation runtime
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg libsndfile1 git
-          python -m pip install --upgrade pip uv
-          git clone --depth 1 https://github.com/Aratako/Irodori-TTS.git Irodori-TTS
-          cd Irodori-TTS
-          uv sync --extra cpu
-          uv pip install openai-whisper rapidfuzz pykakasi scipy soundfile
-
-      - name: Regenerate missing or rejected WAVs and package all 8 voices
-        run: |
-          cd Irodori-TTS
-          uv run --no-sync python ../tools/finish_irodori_final_pack_v3.py
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: irodori-final-clear-80wav
-          path: irodori_finish_output/Irodori_v4_中高音8声_各10話法_明瞭再生成版_80WAV_日本語.zip
-          if-no-files-found: error
-          retention-days: 3
-          compression-level: 0
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: irodori-final-asmr-stereo-8wav
-          path: irodori_finish_output/Irodori_v4_ASMR耳元ステレオ_8声8WAV_日本語.zip
-          if-no-files-found: error
-          retention-days: 3
-          compression-level: 0
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: irodori-final-validation
-          path: |
-            irodori_finish_output/Irodori_v4_明瞭再生成版_検証資料.zip
-            irodori_finish_output/最終集計.json
-            irodori_finish_output/SHA256SUMS.txt
-          if-no-files-found: error
-          retention-days: 3
-          compression-level: 0
+      - run: echo 'Superseded by temp_irodori_v4_fresh_matrix.yml'
