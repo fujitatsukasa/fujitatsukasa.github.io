@@ -1,0 +1,1 @@
+run strict relevance-filtered actual soccer meme image collection for all 253 records
