@@ -1,0 +1,69 @@
+name: Capture Omiya Line Meme
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.capture_omiya_trigger/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/capture-omiya-line-meme.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+      - name: Capture exact community usage
+        run: |
+          mkdir -p artifact
+          python - <<'PY'
+          from playwright.sync_api import sync_playwright
+          from pathlib import Path
+          import json
+          url='https://seinakan-2025.hatenablog.com/entry/2014/09/29/222005'
+          term='降格ラインコントローラー'
+          out=Path('artifact/JP027_大宮ラインコントロール_実使用抜粋.png')
+          with sync_playwright() as pw:
+              b=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
+              c=b.new_context(viewport={'width':1440,'height':1100},locale='ja-JP')
+              p=c.new_page(); p.goto(url,wait_until='domcontentloaded',timeout=45000); p.wait_for_timeout(1800)
+              loc=p.get_by_text(term,exact=False).first
+              found=bool(loc.count())
+              if found:
+                  loc.scroll_into_view_if_needed(timeout=2500); p.wait_for_timeout(700)
+                  target=None
+                  for sel in ['p','div','article']:
+                      q=p.locator(sel).filter(has_text=term).first
+                      if q.count() and q.is_visible(timeout=500): target=q; break
+                  if target is not None:
+                      box=target.bounding_box()
+                      if box:
+                          x=max(0,box['x']-80); y=max(0,box['y']-80); w=min(1440-x,box['width']+160); h=min(1100,box['height']+180)
+                          p.screenshot(path=str(out),clip={'x':x,'y':y,'width':max(500,w),'height':max(320,h)})
+                      else: target.screenshot(path=str(out))
+                  else: p.screenshot(path=str(out),full_page=False)
+              else:
+                  p.screenshot(path=str(out),full_page=False)
+              info={'url':p.url,'title':p.title(),'term':term,'term_found':found,'file':out.name}
+              Path('artifact/収集結果.json').write_text(json.dumps(info,ensure_ascii=False,indent=2),encoding='utf-8')
+              b.close()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: omiya-line-meme-${{ github.run_id }}
+          path: artifact/
+          retention-days: 3
+          if-no-files-found: error
