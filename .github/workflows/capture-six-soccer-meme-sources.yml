@@ -17,7 +17,7 @@ permissions:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -27,13 +27,13 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check playwright requests pillow
           python -m playwright install --with-deps chromium
-      - name: Download actual images and capture source pages
+      - name: Download actual source images and capture exact usage excerpts
         shell: bash
         run: |
           mkdir -p artifact
-          python - <<'PY'
+          cat > /tmp/capture_six.py <<'PY'
           from pathlib import Path
-          import json, requests, hashlib
+          import json, requests, hashlib, re
           from PIL import Image
           from playwright.sync_api import sync_playwright
 
@@ -42,64 +42,78 @@ jobs:
           s=requests.Session(); s.headers.update({'User-Agent':ua,'Referer':'https://www.google.com/'})
           direct={
             'JP016_リトル本田_会見実写.jpg':'https://afpbb.ismcdn.jp/mwimgs/f/9/810wm/img_f93486a18968ba6127a1ffad4f56e9ea170465.jpg',
-            'JP017_なぜ笑うんだい_元場面記事画像.jpg':'https://times-abema.ismcdn.jp/mwimgs/f/0/724w/img_f0fc82b8a4224a64aaeee399e8ef3304190297.jpg',
+            'JP017_なぜ笑うんだい_元場面実写.jpg':'https://times-abema.ismcdn.jp/mwimgs/f/0/724w/img_f0fc82b8a4224a64aaeee399e8ef3304190297.jpg',
+            'JP025_オリ10_歴史実写.jpg':'https://www.nikkansports.com/soccer/news/img/202312020000117-w1300_0.jpg',
           }
           result=[]
           for fn,u in direct.items():
             try:
               r=s.get(u,timeout=30); r.raise_for_status(); p=out/fn; p.write_bytes(r.content)
-              im=Image.open(p); im.verify()
-              result.append({'file':fn,'url':u,'bytes':len(r.content),'sha256':hashlib.sha256(r.content).hexdigest(),'status':'DOWNLOADED'})
+              with Image.open(p) as im: w,h=im.size
+              result.append({'file':fn,'url':u,'width':w,'height':h,'bytes':len(r.content),'sha256':hashlib.sha256(r.content).hexdigest(),'status':'DOWNLOADED'})
             except Exception as e:
               result.append({'file':fn,'url':u,'status':'FAILED','error':type(e).__name__+': '+str(e)})
 
-          pages=[
-            ('JP016_リトル本田_発言記事画面.png','https://www.nikkansports.com/soccer/world/news/202006070000008.html','リトルホンダ'),
-            ('JP017_なぜ笑うんだい_元場面記事画面.png','https://times.abema.tv/articles/-/10042459','なぜ笑う'),
-            ('JP021_ゴンゴール_用語使用記事画面.png','https://www.at-s.com/shizusaka/article/ats/1764560.html','ゴンゴール'),
-            ('JP025_オリ10_歴史写真記事画面.png','https://www.nikkansports.com/soccer/photonews/photonews_nsInc_202312020000117-0.html','オリジナル10'),
-            ('JP027_大宮ラインコントロール_実使用画面.png','https://tkrs.net/137','ラインコントローラー'),
-            ('JP028_繰り返すこのエジリズム_用語解説画面.png','https://socceryougo.com/page/e/116.html','エジリズム'),
+          captures=[
+            {'file':'JP016_リトル本田_発言記事画面.png','url':'https://www.nikkansports.com/soccer/world/news/202006070000008.html','term':'リトルホンダ','scope':'article'},
+            {'file':'JP017_なぜ笑うんだい_元場面記事画面.png','url':'https://www.football-zone.net/archives/407131','term':'なぜ笑うんだい','scope':'article'},
+            {'file':'JP021_ゴンゴール_実写真記事画面.png','url':'https://soccermagazine.jp/j1/17359810','term':'ゴンゴール','scope':'article'},
+            {'file':'JP025_オリ10_定義記事画面.png','url':'https://www.nikkansports.com/soccer/photonews/photonews_nsInc_202312020000117-0.html','term':'オリジナル10','scope':'article'},
+            {'file':'JP027_大宮ラインコントロール_実使用抜粋.png','url':'https://tkrs.net/137','term':'大宮ラインコントローラー','scope':'element'},
+            {'file':'JP028_繰り返すこのエジリズム_AA実物抜粋.png','url':'https://socceryougo.com/page/e/116.html','term':'くり返す このエジリズム','scope':'element'},
           ]
+
           with sync_playwright() as pw:
             browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
-            ctx=browser.new_context(viewport={'width':1440,'height':1000},user_agent=ua,locale='ja-JP')
-            for fn,u,term in pages:
-              p=ctx.new_page()
+            ctx=browser.new_context(viewport={'width':1440,'height':1100},user_agent=ua,locale='ja-JP',device_scale_factor=1)
+            for item in captures:
+              page=ctx.new_page()
               try:
-                p.goto(u,wait_until='domcontentloaded',timeout=40000)
-                p.wait_for_timeout(1500)
+                page.goto(item['url'],wait_until='domcontentloaded',timeout=45000)
+                page.wait_for_timeout(1800)
                 for label in ['同意する','すべて同意','Accept all','Accept All','I agree','閉じる']:
                   try:
-                    b=p.get_by_role('button',name=label).first
-                    if b.is_visible(timeout=300): b.click(timeout=500)
+                    b=page.get_by_role('button',name=re.compile(label,re.I)).first
+                    if b.count() and b.is_visible(timeout=250): b.click(timeout=500)
                   except Exception: pass
+                body=page.locator('body')
+                exact=body.get_by_text(item['term'],exact=False).first
                 found=False
                 try:
-                  loc=p.get_by_text(term,exact=False).first
-                  if loc.count() and loc.is_visible(timeout=1200):
-                    loc.scroll_into_view_if_needed(timeout=2000); p.wait_for_timeout(500); found=True
+                  if exact.count():
+                    exact.scroll_into_view_if_needed(timeout=2500); page.wait_for_timeout(700); found=True
                 except Exception: pass
-                if not found:
-                  for sel in ['h1','article img','main img','img']:
+                target=None
+                if found and item['scope']=='element':
+                  for sel in ['p','pre','blockquote','li','div','article']:
                     try:
-                      loc=p.locator(sel).first
-                      if loc.count() and loc.is_visible(timeout=800):
-                        loc.scroll_into_view_if_needed(timeout=1500); p.wait_for_timeout(400); break
+                      loc=page.locator(sel).filter(has_text=item['term']).first
+                      if loc.count() and loc.is_visible(timeout=500):
+                        target=loc; break
                     except Exception: pass
-                p.screenshot(path=str(out/fn),full_page=False)
-                result.append({'file':fn,'url':p.url,'page_title':p.title(),'term':term,'status':'CAPTURED'})
+                if target is not None:
+                  box=target.bounding_box()
+                  if box:
+                    x=max(0,box['x']-80); y=max(0,box['y']-100); w=min(1440-x,box['width']+160); h=min(1100,box['height']+220)
+                    page.screenshot(path=str(out/item['file']),clip={'x':x,'y':y,'width':max(400,w),'height':max(300,h)})
+                  else:
+                    target.screenshot(path=str(out/item['file']))
+                else:
+                  page.screenshot(path=str(out/item['file']),full_page=False)
+                result.append({'file':item['file'],'url':page.url,'title':page.title(),'term':item['term'],'term_found':found,'status':'CAPTURED'})
               except Exception as e:
-                result.append({'file':fn,'url':u,'term':term,'status':'FAILED','error':type(e).__name__+': '+str(e)})
+                result.append({'file':item['file'],'url':item['url'],'term':item['term'],'status':'FAILED','error':type(e).__name__+': '+str(e)})
               finally:
-                p.close()
+                page.close()
             browser.close()
+
           (out/'収集結果.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
           print(json.dumps(result,ensure_ascii=False,indent=2))
           PY
+          python /tmp/capture_six.py | tee artifact/収集ログ.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: six-soccer-meme-sources-${{ github.run_id }}
+          name: soccer-meme-six-exact-sources-${{ github.run_id }}
           path: artifact/
           retention-days: 3
           if-no-files-found: error
