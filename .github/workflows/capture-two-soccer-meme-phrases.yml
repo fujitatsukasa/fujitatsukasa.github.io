@@ -1,0 +1,72 @@
+name: Capture Two Soccer Meme Phrases
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.capture2_trigger/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/capture-two-soccer-meme-phrases.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+      - name: Capture exact phrase contexts
+        shell: bash
+        run: |
+          mkdir -p artifact
+          cat > /tmp/capture2.py <<'PY'
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+
+          items = [
+              ('JP027_大宮ラインコントロール','https://tkrs.net/24941','ラインコントロール'),
+              ('JP028_繰り返すこのエジリズム','https://socceryougo.com/page/e/116.html','くり返す このエジリズム'),
+          ]
+          out=Path('artifact/サッカーミーム_用語実使用画面'); out.mkdir(parents=True,exist_ok=True)
+          with sync_playwright() as pw:
+              browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
+              ctx=browser.new_context(viewport={'width':1440,'height':1000},locale='ja-JP',user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36')
+              for folder_name,url,phrase in items:
+                  folder=out/folder_name; folder.mkdir(parents=True,exist_ok=True)
+                  page=ctx.new_page()
+                  page.goto(url,wait_until='domcontentloaded',timeout=35000)
+                  page.wait_for_timeout(1800)
+                  loc=page.get_by_text(phrase,exact=False).first
+                  if loc.count():
+                      loc.scroll_into_view_if_needed(timeout=3000)
+                      page.wait_for_timeout(700)
+                      try:
+                          loc.screenshot(path=str(folder/'02_実使用箇所.png'))
+                      except Exception:
+                          page.screenshot(path=str(folder/'02_実使用箇所.png'),full_page=False)
+                  else:
+                      page.screenshot(path=str(folder/'02_実使用箇所.png'),full_page=True)
+                  page.close()
+              browser.close()
+          PY
+          python /tmp/capture2.py
+          cd artifact
+          zip -r -9 'サッカーミーム_用語実使用画面.zip' 'サッカーミーム_用語実使用画面'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: soccer-meme-two-phrases-${{ github.run_id }}
+          path: artifact/
+          retention-days: 3
+          if-no-files-found: error
