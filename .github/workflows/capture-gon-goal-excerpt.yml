@@ -1,0 +1,64 @@
+name: Capture Gon Goal Exact Excerpt
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.capture_gon_trigger/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/capture-gon-goal-excerpt.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+      - name: Capture exact article paragraph
+        shell: bash
+        run: |
+          mkdir -p artifact
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+          out=Path('artifact')
+          url='https://www.daily.co.jp/soccer/2012/12/28/0005631209.shtml'
+          with sync_playwright() as pw:
+            b=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
+            p=b.new_page(viewport={'width':1440,'height':1000},locale='ja-JP',user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36')
+            p.goto(url,wait_until='domcontentloaded',timeout=45000); p.wait_for_timeout(1200)
+            p.evaluate("""() => { document.querySelectorAll('iframe, [style*="position: fixed"], [style*="position:fixed"], .overlay, .modal, .ad, [class*="ad-"]').forEach(e=>e.remove()); }""")
+            loc=p.get_by_text('ゴンゴール',exact=False).first
+            found=bool(loc.count())
+            target=loc
+            if found:
+              try:
+                parent=loc.locator('xpath=ancestor::p[1]')
+                if parent.count(): target=parent
+              except Exception: pass
+              target.scroll_into_view_if_needed(timeout=2500); p.wait_for_timeout(400)
+              target.screenshot(path=str(out/'JP021_ゴンゴール_実使用抜粋.png'))
+            else:
+              p.screenshot(path=str(out/'JP021_ゴンゴール_実使用抜粋.png'),full_page=False)
+            (out/'収集結果.json').write_text(json.dumps({'url':p.url,'title':p.title(),'term_found':found,'status':'CAPTURED'},ensure_ascii=False,indent=2),encoding='utf-8')
+            b.close()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gon-goal-excerpt-${{ github.run_id }}
+          path: artifact/
+          retention-days: 3
+          if-no-files-found: error
