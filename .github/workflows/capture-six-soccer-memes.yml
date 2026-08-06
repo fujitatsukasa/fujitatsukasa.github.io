@@ -41,10 +41,10 @@ jobs:
           items = [
             dict(id='JP016', name='リトル本田', url='https://www.nikkansports.com/soccer/world/news/202006070000008.html', direct='https://www.nikkansports.com/soccer/world/news/img/202006070000008-w1300_1.jpg', note='2014年ACミラン入団会見の実写真'),
             dict(id='JP017', name='なぜ笑うんだい', url='https://times.abema.tv/articles/-/10189436', direct='https://times-abema.ismcdn.jp/mwimgs/f/0/724w/img_f0fc82b8a4224a64aaeee399e8ef3304190297.jpg', note='2014年来日イベントの実写真・記事'),
-            dict(id='JP021', name='ゴンゴール', url='https://www.at-s.com/sports/article/shizuoka/1764560.html', direct='', note='中山雅史のゴールとチャントを扱う実記事'),
+            dict(id='JP021', name='ゴンゴール', url='https://www.soccerdigestweb.com/news/detail/id=117485', direct='', note='中山雅史の日本人W杯初ゴールを扱う実記事'),
             dict(id='JP025', name='オリ10', url='https://www.nikkansports.com/soccer/news/202312020000117.html', direct='', note='Jリーグのオリジナル10を扱う歴史記事'),
-            dict(id='JP027', name='大宮ラインコントロール', url='https://tkrs.net/24941', direct='', note='大宮の残留力・ラインコントロールが実際に使われるコミュニティ文脈'),
-            dict(id='JP028', name='繰り返すこのエジリズム', url='https://anond.hatelabo.jp/20250311125501', direct='', note='エジリズムの実使用・説明ページ'),
+            dict(id='JP027', name='大宮ラインコントロール', url='https://tkrs.net/24941', direct='', note='本文中で「残留力とかラインコントロール」と実際に使われるコミュニティ記事'),
+            dict(id='JP028', name='繰り返すこのエジリズム', url='https://socceryougo.com/page/e/116.html', direct='', note='元AA・替え歌と「くり返す このエジリズム」を掲載する実解説ページ'),
           ]
           out=Path('artifact/サッカーミーム_未取得6件_実物素材'); out.mkdir(parents=True,exist_ok=True)
           session=requests.Session(); session.headers.update({'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36'})
