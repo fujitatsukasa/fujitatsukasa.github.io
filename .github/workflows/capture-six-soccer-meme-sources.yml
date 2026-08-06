@@ -43,7 +43,6 @@ jobs:
           direct={
             'JP016_リトル本田_会見実写.jpg':'https://afpbb.ismcdn.jp/mwimgs/f/9/810wm/img_f93486a18968ba6127a1ffad4f56e9ea170465.jpg',
             'JP017_なぜ笑うんだい_元場面記事画像.jpg':'https://times-abema.ismcdn.jp/mwimgs/f/0/724w/img_f0fc82b8a4224a64aaeee399e8ef3304190297.jpg',
-            'JP021_ゴンゴール_実試合写真.jpg':'https://soccerdigestweb.thedigestweb.com/v%3D1663966945/files/topics/117485_ext_04_0.jpg',
           }
           result=[]
           for fn,u in direct.items():
@@ -57,7 +56,7 @@ jobs:
           pages=[
             ('JP016_リトル本田_発言記事画面.png','https://www.nikkansports.com/soccer/world/news/202006070000008.html','リトルホンダ'),
             ('JP017_なぜ笑うんだい_元場面記事画面.png','https://times.abema.tv/articles/-/10042459','なぜ笑う'),
-            ('JP021_ゴンゴール_用語使用記事画面.png','https://www.soccer-magazine.jp/_ct/17706316','ゴンゴール'),
+            ('JP021_ゴンゴール_用語使用記事画面.png','https://www.at-s.com/shizusaka/article/ats/1764560.html','ゴンゴール'),
             ('JP025_オリ10_歴史写真記事画面.png','https://www.nikkansports.com/soccer/photonews/photonews_nsInc_202312020000117-0.html','オリジナル10'),
             ('JP027_大宮ラインコントロール_実使用画面.png','https://tkrs.net/137','ラインコントローラー'),
             ('JP028_繰り返すこのエジリズム_用語解説画面.png','https://socceryougo.com/page/e/116.html','エジリズム'),
