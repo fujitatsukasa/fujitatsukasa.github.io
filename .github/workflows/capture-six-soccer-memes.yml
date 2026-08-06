@@ -1,6 +1,10 @@
 name: Capture Six Soccer Meme Sources
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.capture6_trigger/**'
   push:
     branches: [main]
     paths:
@@ -28,13 +32,12 @@ jobs:
         run: |
           cat > /tmp/capture6.py <<'PY'
           from __future__ import annotations
-          import json, re, urllib.parse, hashlib
+          import json, urllib.parse
           from pathlib import Path
           import requests
           from bs4 import BeautifulSoup
           from PIL import Image
           from playwright.sync_api import sync_playwright
-
           items = [
             dict(id='JP016', name='リトル本田', url='https://www.nikkansports.com/soccer/world/news/202006070000008.html', direct='https://www.nikkansports.com/soccer/world/news/img/202006070000008-w1300_1.jpg', note='2014年ACミラン入団会見の実写真'),
             dict(id='JP017', name='なぜ笑うんだい', url='https://times.abema.tv/articles/-/10189436', direct='https://times-abema.ismcdn.jp/mwimgs/f/0/724w/img_f0fc82b8a4224a64aaeee399e8ef3304190297.jpg', note='2014年来日イベントの実写真・記事'),
@@ -58,14 +61,11 @@ jobs:
                 final=page.url; title=page.title()
                 try:
                   loc=page.get_by_text(item['name'],exact=False).first
-                  if loc.count() and loc.is_visible(timeout=1200):
-                    loc.scroll_into_view_if_needed(timeout=1800); page.wait_for_timeout(400)
+                  if loc.count() and loc.is_visible(timeout=1200): loc.scroll_into_view_if_needed(timeout=1800); page.wait_for_timeout(400)
                 except Exception: pass
                 page.screenshot(path=str(folder/'01_参照ページ実写.png'),full_page=False)
                 status.append('SOURCE_PAGE_CAPTURED')
-                # Obtain page metadata and OG image.
-                html=page.content(); soup=BeautifulSoup(html,'lxml')
-                candidates=[]
+                soup=BeautifulSoup(page.content(),'lxml'); candidates=[]
                 if item['direct']: candidates.append(item['direct'])
                 for attrs in [dict(property='og:image'),dict(name='twitter:image'),dict(name='twitter:image:src')]:
                   t=soup.find('meta',attrs=attrs)
@@ -77,25 +77,17 @@ jobs:
                   try:
                     r=session.get(u,timeout=25,headers={'Referer':final,'User-Agent':session.headers['User-Agent']})
                     if r.status_code>=400 or len(r.content)<8000: continue
-                    ext='.jpg'
-                    ctype=r.headers.get('content-type','').lower()
-                    if 'png' in ctype: ext='.png'
-                    elif 'webp' in ctype: ext='.webp'
+                    ctype=r.headers.get('content-type','').lower(); ext='.png' if 'png' in ctype else '.webp' if 'webp' in ctype else '.jpg'
                     p=folder/f'02_実物画像{ext}'; p.write_bytes(r.content)
                     with Image.open(p) as im:
-                      w,h=im.size
-                      if w<240 or h<160: p.unlink(); continue
+                      if im.width<240 or im.height<160: p.unlink(); continue
                     image_path=str(p); status.append('ACTUAL_PAGE_IMAGE_DOWNLOADED'); break
                   except Exception: continue
-              except Exception as e:
-                status.append('PAGE_CAPTURE_FAILED:'+type(e).__name__)
-              finally:
-                page.close()
+              except Exception as e: status.append('PAGE_CAPTURE_FAILED:'+type(e).__name__)
+              finally: page.close()
               info={**item,'final_url':final,'page_title':title,'status':status,'image_path':image_path,'rights_status':'RIGHTS_CHECK_REQUIRED','generated_images':0}
               (folder/'03_収録情報.json').write_text(json.dumps(info,ensure_ascii=False,indent=2),encoding='utf-8')
-              (folder/'00_ミーム解説追記.txt').write_text(
-                f"ミームID：{item['id']}\n名称：{item['name']}\n\n今回の取得物：\n{item['note']}\n\n参照ページ：\n{final}\n\n画像区分：\n01は公開ウェブページの実写キャプチャ、02がある場合は当該ページ又は明示された同一出来事の実写真です\n\n注意：\nAI画像生成・再描画はしていません。公開・商用利用前に権利確認が必要です。\n",
-                encoding='utf-8')
+              (folder/'00_ミーム解説追記.txt').write_text(f"ミームID：{item['id']}\n名称：{item['name']}\n\n今回の取得物：\n{item['note']}\n\n参照ページ：\n{final}\n\n画像区分：\n01は公開ウェブページの実写キャプチャ、02がある場合は当該ページ又は明示された同一出来事の実写真です\n\n注意：\nAI画像生成・再描画はしていません。公開・商用利用前に権利確認が必要です。\n",encoding='utf-8')
               results.append(info)
             browser.close()
           (out/'収集結果.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
