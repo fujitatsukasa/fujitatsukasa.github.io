@@ -1,0 +1,149 @@
+name: Capture Remaining Soccer Net Terms
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.capture_remaining_terms_trigger/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/capture-remaining-soccer-net-terms.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --disable-pip-version-check playwright ddgs
+          python -m playwright install --with-deps chromium
+      - name: Search and capture exact real-world football usage
+        shell: bash
+        run: |
+          mkdir -p artifact/remaining_terms
+          cat > /tmp/capture_remaining.py <<'PY'
+          from pathlib import Path
+          import json, re, time, urllib.parse
+          from ddgs import DDGS
+          from playwright.sync_api import sync_playwright
+
+          OUT=Path('artifact/remaining_terms')
+          OUT.mkdir(parents=True,exist_ok=True)
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36'
+          football_words=('football','soccer','premier league','champions league','fifa','uefa','goal','manager','referee','match','club','team','player')
+          blocked_hosts=('pinterest.','facebook.com','instagram.com','tiktok.com','amazon.','ebay.','etsy.')
+          items=[
+            ('GL062','Peak Barclays','"Peak Barclays" football'),
+            ('GL064',"Game's Back",'"Game\'s Back" football'),
+            ('GL066','Limbs','"limbs" football fans celebration'),
+            ('GL068','Worldie','"worldie" football slang'),
+            ('GL075','Penalty Merchant','"penalty merchant" football'),
+            ('GL077','Clutch','"clutch" football player'),
+            ('GL078','Generational','"generational" football talent'),
+            ('GL079','Fraud Watch','"fraud watch" football'),
+            ('GL087','VARchester United','"VARchester United"'),
+            ('GL088','LiVARpool','"LiVARpool"'),
+            ('GL092','Chelski','"Chelski" football'),
+            ('GL097','Banana Skin','"banana skin" football match'),
+            ('GL099','Sack Race','"sack race" football managers'),
+            ('GL100','Managerial Carousel','"managerial carousel" football'),
+            ('GL101','Six-Pointer','"six-pointer" football'),
+            ('GL102','Cupset','"cupset" football'),
+            ('GL103','Dark Horse','"dark horse" football tournament'),
+            ('GL104','Robbery','"robbery" football referee decision'),
+          ]
+
+          def safe(s): return re.sub(r'[^0-9A-Za-z._-]+','_',s).strip('_')
+          def search(q):
+            try: return list(DDGS().text(q,max_results=15,safesearch='moderate'))
+            except Exception: return []
+          def host_ok(url):
+            h=urllib.parse.urlsplit(url).netloc.lower()
+            return h and not any(x in h for x in blocked_hosts)
+          def football_context(text):
+            low=text.lower()
+            return any(w in low for w in football_words)
+
+          results=[]
+          with sync_playwright() as pw:
+            browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
+            ctx=browser.new_context(viewport={'width':1440,'height':1100},user_agent=UA,locale='en-GB')
+            for mid,term,query in items:
+              candidates=search(query)
+              chosen=None; attempts=[]
+              for cand in candidates:
+                url=cand.get('href') or cand.get('url') or ''
+                title=cand.get('title') or ''
+                body=cand.get('body') or ''
+                if not url.startswith(('http://','https://')) or not host_ok(url): continue
+                if term.lower() not in (title+' '+body+' '+url).lower() and term.lower().replace('-',' ') not in (title+' '+body).lower():
+                  continue
+                page=ctx.new_page()
+                try:
+                  page.goto(url,wait_until='domcontentloaded',timeout=35000)
+                  page.wait_for_timeout(1000)
+                  text=page.locator('body').inner_text(timeout=5000)
+                  exact=term.lower() in text.lower() or term.lower().replace('-',' ') in text.lower()
+                  context=football_context(text+' '+page.title()+' '+url)
+                  attempts.append({'url':page.url,'title':page.title(),'exact':exact,'football_context':context})
+                  if exact and context:
+                    chosen=(page,url,text)
+                    break
+                except Exception as e:
+                  attempts.append({'url':url,'error':type(e).__name__+': '+str(e)[:120]})
+                  page.close()
+                  continue
+                if chosen is None: page.close()
+              if chosen:
+                page,url,text=chosen
+                found=False; target=None
+                variants=[term,term.replace('-',' ')]
+                for v in variants:
+                  try:
+                    loc=page.get_by_text(re.compile(re.escape(v),re.I)).first
+                    if loc.count():
+                      loc.scroll_into_view_if_needed(timeout=2000); page.wait_for_timeout(500); found=True
+                      for sel in ['p','blockquote','li','article','div']:
+                        q=page.locator(sel).filter(has_text=re.compile(re.escape(v),re.I)).first
+                        if q.count() and q.is_visible(timeout=300): target=q; break
+                      if found: break
+                  except Exception: pass
+                file=OUT/f'{mid}_{safe(term)}_実使用抜粋.png'
+                try:
+                  if target is not None:
+                    box=target.bounding_box()
+                    if box:
+                      x=max(0,box['x']-80); y=max(0,box['y']-90); w=min(1440-x,box['width']+160); h=min(1100,box['height']+200)
+                      page.screenshot(path=str(file),clip={'x':x,'y':y,'width':max(500,w),'height':max(320,h)})
+                    else: target.screenshot(path=str(file))
+                  else: page.screenshot(path=str(file),full_page=False)
+                  status='CAPTURED_EXACT_USAGE'
+                except Exception as e:
+                  status='CAPTURE_FAILED'; attempts.append({'screenshot_error':repr(e)})
+                info={'meme_id':mid,'term':term,'query':query,'status':status,'file':file.name,'url':page.url,'title':page.title(),'term_found':found,'attempts':attempts}
+                page.close()
+              else:
+                info={'meme_id':mid,'term':term,'query':query,'status':'NOT_FOUND','file':'','url':'','title':'','term_found':False,'attempts':attempts}
+              results.append(info)
+              print(json.dumps(info,ensure_ascii=False),flush=True)
+              time.sleep(.15)
+            browser.close()
+          (OUT/'収集結果.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
+          PY
+          python /tmp/capture_remaining.py | tee artifact/収集ログ.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: remaining-soccer-net-terms-${{ github.run_id }}
+          path: artifact/
+          retention-days: 3
+          if-no-files-found: error
