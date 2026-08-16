@@ -1,0 +1,1 @@
+run relevance-filtered soccer meme collector test
