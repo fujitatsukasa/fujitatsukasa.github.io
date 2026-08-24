@@ -1,0 +1,123 @@
+name: Temporary Irodori final delivery 8 voices
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  generate:
+    if: startsWith(github.head_ref, 'tmp/irodori-final-delivery-')
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        voice: [0, 1, 2, 3, 4, 5, 6, 7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      HF_XET_HIGH_PERFORMANCE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '600'
+      TOKENIZERS_PARALLELISM: 'false'
+      VOICE_INDEX: ${{ matrix.voice }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install current Irodori CPU runtime and validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1 git
+          python -m pip install --upgrade pip uv
+          git clone --depth 1 https://github.com/Aratako/Irodori-TTS.git Irodori-TTS
+          cd Irodori-TTS
+          uv sync --extra cpu
+          uv pip install faster-whisper rapidfuzz pykakasi scipy soundfile
+
+      - name: Generate one clean voice with ten matched acting styles
+        run: |
+          cd Irodori-TTS
+          uv run --no-sync python ../tools/generate_irodori_final_delivery.py
+
+      - name: Upload voice WAVs and validation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: irodori-final-delivery-voice-${{ matrix.voice }}
+          path: delivery_output/voice_${{ matrix.voice }}/
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
+
+  package:
+    if: always() && startsWith(github.head_ref, 'tmp/irodori-final-delivery-')
+    needs: generate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install package validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1
+          python -m pip install --upgrade pip soundfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: irodori-final-delivery-voice-*
+          path: downloaded_delivery_voices
+
+      - name: Merge, decode-check and create final Japanese ZIPs
+        run: python tools/package_irodori_final_delivery.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: irodori-final-delivery-mono80
+          path: delivery_package_output/Irodori_中高音8声_明瞭再生成_完成版_モノラル80WAV.zip
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: irodori-final-delivery-asmr8
+          path: delivery_package_output/Irodori_中高音8声_ASMR耳元ステレオ_8WAV.zip
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: irodori-final-delivery-all88
+          path: delivery_package_output/Irodori_中高音8声_明瞭再生成_完成版_全88WAV.zip
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: irodori-final-delivery-validation
+          path: |
+            delivery_package_output/Irodori_中高音8声_明瞭再生成_検証資料.zip
+            delivery_package_output/最終集計.json
+            delivery_package_output/SHA256SUMS.txt
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
