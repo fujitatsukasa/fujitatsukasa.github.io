@@ -19,14 +19,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install base dependencies
-        run: python -m pip install --disable-pip-version-check requests beautifulsoup4 yt-dlp
+      - name: Install Japanese fonts and base dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
+          fc-cache -f
+          python -m pip install --disable-pip-version-check requests beautifulsoup4 yt-dlp
       - name: Collect actual web media
         run: python .soccer_collector_trigger/collect.py
       - name: Upload collected media
         uses: actions/upload-artifact@v4
         with:
-          name: rechallenge-tokyo-actual-media
+          name: rechallenge-tokyo-actual-media-supplement
           path: |
             .soccer_collector_trigger/parts/research_meme_part_01.zip
             .soccer_collector_trigger/research_output/metadata/**
