@@ -1,0 +1,47 @@
+name: ChatGPT collect Rechallenge Tokyo run5 fast 20260827
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-collect-rechallenge-run5-20260827.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install media tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg poppler-utils fonts-noto-cjk
+          python -m pip install requests beautifulsoup4 lxml pillow imagehash yt-dlp playwright
+          python -m playwright install --with-deps chromium
+      - name: Restore and tune collector
+        run: |
+          cat tmp/rc_exact_01.b64 tmp/rc_exact_02.b64 tmp/rc_exact_03.b64 tmp/rc_exact_04.b64 > /tmp/c.b64
+          test "$(sha256sum /tmp/c.b64 | cut -d' ' -f1)" = "d845267560aba21953033bcc3f97021ca4941879ad2c34f8197b92c91c60a291"
+          base64 -d /tmp/c.b64 | gzip -d > /tmp/collector.py
+          test "$(sha256sum /tmp/collector.py | cut -d' ' -f1)" = "6253270cc9502499d9e9235f713515c8019e27568348b2fbdaf518804b0502ed"
+          sed -i 's/TIMEOUT = 35/TIMEOUT = 14/' /tmp/collector.py
+          sed -i 's/for attempt in range(4):/for attempt in range(2):/' /tmp/collector.py
+          sed -i 's/timeout=70/timeout=24/g; s/timeout=45/timeout=18/g; s/45_000/22_000/g; s/12_000/5_000/g; s/timeout=1200/timeout=360/g' /tmp/collector.py
+          sed -i 's/"--playlist-end", "3"/"--playlist-end", "1"/' /tmp/collector.py
+          python -m py_compile /tmp/collector.py
+      - name: Collect public real media
+        run: python /tmp/collector.py
+      - name: Upload collected media
+        uses: actions/upload-artifact@v4
+        with:
+          name: rechallenge-raw-run5-20260827
+          path: rechallenge_output/
+          if-no-files-found: error
+          compression-level: 5
+          retention-days: 1
