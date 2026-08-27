@@ -1,0 +1,25 @@
+name: ChatGPT action smoke 20260827
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-action-smoke-20260827.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create test artifact
+        run: |
+          mkdir -p output
+          echo ok > output/test.txt
+      - name: Upload test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-smoke-20260827
+          path: output/
+          retention-days: 1
