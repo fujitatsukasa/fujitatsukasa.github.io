@@ -1,4 +1,4 @@
-name: Temporary Fukuoka Assembly Real Media Collection
+name: Temporary Fukuoka Assembly Media Supplement
 
 on:
   pull_request:
@@ -10,443 +10,189 @@ permissions:
   contents: read
 
 jobs:
-  collect:
+  supplement:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install media tools
+      - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y poppler-utils ffmpeg
+          sudo apt-get install -y ffmpeg
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 lxml pillow yt-dlp
-      - name: Download original public media
+      - name: Collect newly discovered galleries and direct streams
         shell: bash
         run: |
           python <<'PY'
           from __future__ import annotations
-          import csv, hashlib, html, json, mimetypes, os, re, shutil, subprocess, sys, threading, time
-          from concurrent.futures import ThreadPoolExecutor, as_completed
+          import csv, hashlib, html, json, re, shutil, subprocess, sys, time
           from pathlib import Path
           from urllib.parse import urljoin, urlparse, unquote
           import requests
           from bs4 import BeautifulSoup
           from PIL import Image
 
-          ROOT = Path('output')
-          ASSETS = ROOT / 'assets'
-          META = ROOT / 'meta'
-          TMP = ROOT / 'tmp'
-          for d in (ASSETS, META, TMP):
-              d.mkdir(parents=True, exist_ok=True)
-
-          UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36'
-          HEADERS = {'User-Agent': UA, 'Accept-Language': 'ja,en-US;q=0.8,en;q=0.6'}
-          lock = threading.Lock()
-          seen_sha: dict[str, str] = {}
-          asset_rows: list[dict] = []
-          page_rows: list[dict] = []
-          video_rows: list[dict] = []
-
-          page_seeds = [
-            'https://www.gikai.pref.fukuoka.lg.jp/soshiki/2/gaiyou080825.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/gichou/',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/honkaigi/gian-0808.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/honkaigi/gikainittei-0808.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/honkaigi/saiketsu-0808.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/soshiki/2/gaiyou080818.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/giin/yoshimatsu-motoaki.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/giin/etou-hideyuki.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/giin/hayashi-taisuke.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/giin/kouzaki-satoshi.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/giin/itahashi-satoshi.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/soshiki/2/statement-of-beliefs.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/gichou/rekidai-fg.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/topics/gaiyou280520.html',
-            'https://www.gikai.pref.fukuoka.lg.jp/site/topics/gaiyou-021118.html',
-            'https://www.pref.fukuoka.lg.jp/press-release/0817-rinjigikai.html',
-            'https://www.pref.fukuoka.lg.jp/press-release/gikai-dai3sha.html',
-            'https://www.pref.fukuoka.lg.jp/press-release/hukugityojisyoku2026.html',
-            'https://www.pref.fukuoka.lg.jp/site/chiji-kisha/teirei-kisyakaike20260821.html',
-            'https://cms.city.onojo.fukuoka.jp/hpkiji/pub/List.aspx?c_id=3&class_id=141&class_set_id=1',
-            'https://www.city.onojo.fukuoka.jp/kiji0037822/index.html',
-            'https://mainichi.jp/articles/20260825/k00/00m/010/223000c',
-            'https://mainichi.jp/articles/20260805/k00/00m/010/305000c',
-            'https://news.tnc.ne.jp/politics/928478_1.html',
-            'https://news.tnc.co.jp/news/articles/NID2026070531083/',
-            'https://news.tnc.co.jp/news/articles/NID2026070631089/',
-            'https://news.tnc.co.jp/news/articles/NID2026070731120',
-            'https://news.tnc.co.jp/news/articles/NID2026071031167/',
-            'https://news.tnc.co.jp/news/articles/NID2026071431223/',
-            'https://news.tnc.co.jp/news/articles/NID2026072731389/',
-            'https://news.tnc.co.jp/news/articles/NID2026072731391',
-            'https://news.tnc.co.jp/news/articles/NID2026081731690/',
-            'https://news.tnc.co.jp/news/articles/NID2026081831705/',
-            'https://news.tnc.co.jp/news/articles/NID2026081831716/',
-            'https://news.tnc.co.jp/news/articles/NID2026081931732/',
-            'https://news.tnc.co.jp/news/articles/NID2026082131761',
-            'https://news.tnc.co.jp/news/articles/NID2026082431773/',
-            'https://news.tnc.co.jp/news/articles/NID2026082531793/',
-            'https://news.tnc.co.jp/news/articles/NID2026082631811/',
-            'https://news.tv-asahi.co.jp/news_society/articles/000522015.html',
-            'https://news.tv-asahi.co.jp/news_society/articles/000526946.html',
-            'https://news.tv-asahi.co.jp/news_society/articles/000527386.html',
-            'https://news.tv-asahi.co.jp/news_society/articles/000528592.html',
-            'https://news.tv-asahi.co.jp/news_society/articles/900197296.html',
-            'https://news.tv-asahi.co.jp/news_society/articles/900197325.html',
-            'https://news.tv-asahi.co.jp/news_society/articles/900197828.html',
-            'https://newsdig.tbs.co.jp/articles/-/2808682',
-            'https://newsdig.tbs.co.jp/articles/-/2827721',
-            'https://newsdig.tbs.co.jp/articles/-/2830029',
-            'https://newsdig.tbs.co.jp/articles/rkb/2898531?display=1',
-            'https://www.fnn.jp/articles/-/1074365',
-            'https://www.fnn.jp/articles/-/1082388',
-            'https://www.fnn.jp/articles/-/1095993',
+          ROOT=Path('supplement'); ASSETS=ROOT/'assets'; META=ROOT/'meta'; TMP=ROOT/'tmp'
+          for d in (ASSETS,META,TMP): d.mkdir(parents=True,exist_ok=True)
+          H={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36','Accept-Language':'ja,en-US;q=0.8,en;q=0.6'}
+          session=requests.Session(); session.headers.update(H)
+          rows=[]; pages=[]; media=[]; seen={}
+          page_seeds=[
+            'https://www.fnn.jp/articles/-/1102437?display=full',
+            'https://news.tnc.co.jp/news/articles/NID2026082631811',
+            'https://mainichi.jp/articles/20260827/ddl/k40/010/070000c',
+            'https://newsdig.tbs.co.jp/articles/rkb/2830179',
+            'https://newsdig.tbs.co.jp/articles/-/2830179?page=4',
+            'https://kbc.co.jp/gyutto/detail.php?cdid=47081',
+            'https://news.tnc.co.jp/news/articles/NID2026080531549',
             'https://www.fnn.jp/articles/-/1096862',
-            'https://www.fnn.jp/articles/-/1099994',
-            'https://www.fnn.jp/articles/-/1100008',
-            'https://www.fnn.jp/articles/-/1100029',
-            'https://www.fnn.jp/articles/-/1100731',
-            'https://www.fnn.jp/articles/-/1100846?display=full',
-            'https://www.ktv.jp/news/feature/260709-fukuoka/',
-            'https://www.ktv.jp/news/feature/260713-fukuoka/',
-            'https://www.ktv.jp/news/feature/260805-fukuoka/',
-            'https://www.ktv.jp/news/feature/260807-fukuoka/',
-            'https://www.ktv.jp/news/feature/260824-fukuoka/',
-            'https://www.ktv.jp/news/feature/260826-hashimoto/',
-            'https://www.ktv.jp/news/articles/?id=29019',
-            'https://www.ktv.jp/news/articles/?id=29112',
-            'https://www.ktv.jp/news/articles/?id=29158',
-            'https://kbc.co.jp/news/article.php?id=16050726&ymd=2026-08-26',
-            'https://news.ntv.co.jp/category/society/fs445775f125fe4a71a09a22178efa2194',
-            'https://news.livedoor.com/article/detail/32239722/',
-            'https://nagasaki-ct.jp/archives/49127',
-            'https://pressnet.jp/politics/1343'
+            'https://news.tv-asahi.co.jp/news_society/articles/900197296.html',
+            'https://news.tv-asahi.co.jp/news_society/articles/900195977.html',
+            'https://www.gikai.pref.fukuoka.lg.jp/site/honkaigi/saiketsu-0808.html',
+            'https://www.gikai.pref.fukuoka.lg.jp/site/honkaigi/gian-0808.html',
+            'https://www.gikai.pref.fukuoka.lg.jp/site/topics/gaiyou-021215.html',
+            'https://www.gikai.pref.fukuoka.lg.jp/topics/topics-list-r02.html',
+            'https://www.gikai.pref.fukuoka.lg.jp/topics/topics-list-r03.html',
+            'https://nakamurakatsuki.jp/2026/07/30/post-1722/'
           ]
-          pdf_seeds = [
-            'https://www.gikai.pref.fukuoka.lg.jp/uploaded/attachment/500.pdf'
-          ]
-          direct_seeds = [
-            'https://news.tnc.co.jp/data/local/NID202608243177301.jpg',
-            'https://news.tnc.co.jp/data/local/NID202608183170701.jpg',
-            'https://www.ktv.jp/news/wp-content/uploads/sites/2/2026/07/1.png',
-            'https://www.ktv.jp/news/wp-content/uploads/sites/2/2026/07/2.png',
-            'https://www.ktv.jp/news/wp-content/uploads/sites/2/2026/07/3.png',
-            'https://www.ktv.jp/news/wp-content/uploads/sites/2/2026/07/Still0713_00005.jpg',
-            'https://www.ktv.jp/news/wp-content/uploads/sites/2/2026/07/Still0713_00064.jpg',
-            'https://news.tv-asahi.co.jp/articles_img/900195977_img_caae390b7a35a91da77b780ce93cf7d8187075.jpg',
-            'https://sp00sp.asahi.com/image/spimg/AS20260717002447_comm.jpg',
-            'https://image.news.livedoor.com/newsimage/stf/1/2/12f4c_1110_1f5297ac87fb774908dfd915b88d6165.jpeg'
-          ]
-          video_ids = [
-            '4UeFxnhS8VI','n2bl_khzru4','soIbAAMEzEM','z_k2iQ6VTgc','2bTM-ynhBrI',
-            'PKwj23--qIQ','C2FCmsgDUsI','Qx_UkaQem-g','K7WGmZsfDi8','a-iMU_U868U',
-            'R7ck2jdPmP0','jqcZxuvRVzs','h6Hvf_wlhfQ','nuvo7KTEc20','XU1MEA0XG58',
-            '-JTNdxY524c','8gmZ75u8Uvo','VR-yPGNu2mA','oJmecSTE5Hk','1tBRm2UyafU'
+          direct=[
+            'https://news.tnc.co.jp/data/local/NID202606113076701.jpg',
+            'https://cdp-japan.jp/files/v3Tt/AK5G/WnyI/SvJ5/v3TtAK5GWnyISvJ55JtgURcM_tn960.jpg',
+            'https://image.news.livedoor.com/newsimage/stf/1/2/12f4c_1110_1f5297ac87fb774908dfd915b88d6165.jpeg',
+            'https://news.tnc.co.jp/data/local/NID202608253179301.jpg'
           ]
 
-          def slug(s: str, maxlen: int = 90) -> str:
-              s = unquote(s)
-              s = re.sub(r'[^0-9A-Za-z._-]+', '_', s).strip('._')
-              return (s or 'asset')[:maxlen]
-
-          def sha256(data: bytes) -> str:
-              return hashlib.sha256(data).hexdigest()
-
-          def add_row(row: dict) -> None:
-              with lock:
-                  asset_rows.append(row)
-
-          def request(url: str, timeout: int = 28):
-              return requests.get(url, headers=HEADERS, timeout=timeout, allow_redirects=True)
-
-          def obvious_site_asset(url: str) -> bool:
-              p = urlparse(url).path.lower()
-              bad = ('/logo','logo.','icon','favicon','sprite','banner','header','footer','sns','share','facebook','twitter','line_icon','loading','noimage','placeholder','advert','ad_','google')
-              return any(x in p for x in bad)
-
-          def save_image_bytes(data: bytes, url: str, source_page: str, prefix: str, force: bool = False) -> str | None:
-              if not data:
-                  return None
-              h = sha256(data)
-              with lock:
-                  prior = seen_sha.get(h)
-              if prior:
-                  add_row({'record':'asset','source_page':source_page,'asset_url':url,'status':'SHA_DUPLICATE','file':prior,'sha256':h,'width':'','height':'','bytes':len(data),'note':''})
-                  return None
-              temp = TMP / f'{prefix}_{h[:12]}.bin'
-              temp.write_bytes(data)
+          def sha(b): return hashlib.sha256(b).hexdigest()
+          def slug(s,n=70):
+              s=unquote(s); s=re.sub(r'[^0-9A-Za-z._-]+','_',s).strip('._')
+              return (s or 'asset')[:n]
+          def get(u,t=35): return session.get(u,timeout=t,allow_redirects=True)
+          def save_image(data,u,source,prefix,force=False):
+              h=sha(data)
+              if h in seen:
+                  rows.append({'source_page':source,'asset_url':u,'status':'SHA_DUPLICATE','file':seen[h],'sha256':h,'width':'','height':'','bytes':len(data),'note':''}); return None
+              p=TMP/(prefix+'_'+h[:12]+'.bin'); p.write_bytes(data)
               try:
-                  with Image.open(temp) as im:
-                      im.load()
-                      w, hgt = im.size
-                      fmt = (im.format or 'JPEG').upper()
-                      ext = {'JPEG':'.jpg','PNG':'.png','WEBP':'.webp','BMP':'.bmp','TIFF':'.tif'}.get(fmt,'.jpg')
-                  if not force and (w < 500 or hgt < 280):
-                      temp.unlink(missing_ok=True)
-                      add_row({'record':'asset','source_page':source_page,'asset_url':url,'status':'EXCLUDED_LOW_RES','file':'','sha256':h,'width':w,'height':hgt,'bytes':len(data),'note':fmt})
-                      return None
-                  name = f'{prefix}_{h[:12]}{ext}'
-                  dest = ASSETS / name
-                  temp.replace(dest)
-                  with lock:
-                      seen_sha[h] = str(dest)
-                  add_row({'record':'asset','source_page':source_page,'asset_url':url,'status':'SAVED','file':str(dest),'sha256':h,'width':w,'height':hgt,'bytes':len(data),'note':fmt})
-                  return str(dest)
+                  with Image.open(p) as im: im.load(); w,hh=im.size; fmt=(im.format or 'JPEG').upper()
+                  ext={'JPEG':'.jpg','PNG':'.png','WEBP':'.webp','TIFF':'.tif','BMP':'.bmp'}.get(fmt,'.jpg')
+                  if not force and (w<500 or hh<280):
+                      p.unlink(missing_ok=True); rows.append({'source_page':source,'asset_url':u,'status':'EXCLUDED_LOW_RES','file':'','sha256':h,'width':w,'height':hh,'bytes':len(data),'note':fmt}); return None
+                  dest=ASSETS/(prefix+'_'+h[:12]+ext); p.replace(dest); seen[h]=str(dest)
+                  rows.append({'source_page':source,'asset_url':u,'status':'SAVED','file':str(dest),'sha256':h,'width':w,'height':hh,'bytes':len(data),'note':fmt}); return str(dest)
               except Exception as e:
-                  temp.unlink(missing_ok=True)
-                  add_row({'record':'asset','source_page':source_page,'asset_url':url,'status':'EXCLUDED_NOT_IMAGE','file':'','sha256':h,'width':'','height':'','bytes':len(data),'note':repr(e)[:180]})
-                  return None
-
-          def download_image(url: str, source_page: str, prefix: str, force: bool = False) -> None:
+                  p.unlink(missing_ok=True); rows.append({'source_page':source,'asset_url':u,'status':'EXCLUDED_NOT_IMAGE','file':'','sha256':h,'width':'','height':'','bytes':len(data),'note':repr(e)[:160]}); return None
+          def dl_image(u,source,prefix,force=False):
               try:
-                  r = request(url)
-                  if r.status_code != 200:
-                      add_row({'record':'asset','source_page':source_page,'asset_url':url,'status':f'HTTP_{r.status_code}','file':'','sha256':'','width':'','height':'','bytes':len(r.content),'note':''})
-                      return
-                  ct = r.headers.get('content-type','').lower()
-                  if 'text/html' in ct:
-                      add_row({'record':'asset','source_page':source_page,'asset_url':url,'status':'EXCLUDED_HTML','file':'','sha256':'','width':'','height':'','bytes':len(r.content),'note':ct})
-                      return
-                  save_image_bytes(r.content, r.url, source_page, prefix, force)
-              except Exception as e:
-                  add_row({'record':'asset','source_page':source_page,'asset_url':url,'status':'ERROR','file':'','sha256':'','width':'','height':'','bytes':'','note':repr(e)[:240]})
-
-          def add_json_images(obj, out: set[str]) -> None:
-              if isinstance(obj, dict):
-                  for k, v in obj.items():
-                      if k.lower() in {'image','images','contenturl','thumbnailurl','url'}:
-                          if isinstance(v, str) and re.search(r'\.(?:jpe?g|png|webp)(?:\?|$)', v, re.I):
-                              out.add(v)
-                          elif isinstance(v, (dict, list)):
-                              add_json_images(v, out)
-                      elif isinstance(v, (dict, list)):
-                          add_json_images(v, out)
-              elif isinstance(obj, list):
-                  for x in obj:
-                      add_json_images(x, out)
-
-          def crawl_page(item: tuple[int, str]) -> None:
-              idx, page_url = item
-              started = time.time()
-              found: set[str] = set()
-              status = ''
+                  r=get(u)
+                  if r.status_code!=200: rows.append({'source_page':source,'asset_url':u,'status':f'HTTP_{r.status_code}','file':'','sha256':'','width':'','height':'','bytes':len(r.content),'note':''}); return
+                  if 'text/html' in r.headers.get('content-type','').lower(): rows.append({'source_page':source,'asset_url':u,'status':'EXCLUDED_HTML','file':'','sha256':'','width':'','height':'','bytes':len(r.content),'note':''}); return
+                  save_image(r.content,r.url,source,prefix,force)
+              except Exception as e: rows.append({'source_page':source,'asset_url':u,'status':'ERROR','file':'','sha256':'','width':'','height':'','bytes':'','note':repr(e)[:200]})
+          def add_json(obj,imgs,streams):
+              if isinstance(obj,dict):
+                  for k,v in obj.items():
+                      if isinstance(v,str):
+                          s=html.unescape(v).replace('\\/','/')
+                          if re.search(r'\.(?:jpe?g|png|webp)(?:\?|$)',s,re.I): imgs.add(s)
+                          if re.search(r'\.(?:m3u8|mp4)(?:\?|$)',s,re.I): streams.add(s)
+                      elif isinstance(v,(dict,list)): add_json(v,imgs,streams)
+              elif isinstance(obj,list):
+                  for x in obj: add_json(x,imgs,streams)
+          def crawl(idx,u):
+              started=time.time(); imgs=set(); streams=set()
               try:
-                  r = request(page_url)
-                  status = f'HTTP_{r.status_code}'
-                  if r.status_code != 200:
-                      with lock:
-                          page_rows.append({'page_url':page_url,'status':status,'found':0,'saved':0,'sha_duplicate':0,'excluded':0,'seconds':round(time.time()-started,2)})
-                      return
-                  text = r.text
-                  soup = BeautifulSoup(text, 'lxml')
-                  for tag in soup.find_all(['meta','img','source','a']):
-                      vals = []
-                      if tag.name == 'meta':
-                          vals = [tag.get('content')]
-                      elif tag.name == 'a':
-                          vals = [tag.get('href')]
-                      else:
-                          vals = [tag.get(k) for k in ('src','data-src','data-original','data-lazy-src','data-image','content')]
-                      for val in vals:
-                          if not val:
-                              continue
-                          val = html.unescape(val).replace('\\/','/')
-                          if re.search(r'\.(?:jpe?g|png|webp)(?:[?#].*)?$', val, re.I):
-                              found.add(urljoin(r.url, val))
+                  r=get(u); status=f'HTTP_{r.status_code}'
+                  if r.status_code!=200: pages.append({'page_url':u,'status':status,'found_images':0,'found_streams':0,'saved':0,'sha_duplicate':0,'excluded':0,'seconds':round(time.time()-started,2)}); return
+                  text=r.text; soup=BeautifulSoup(text,'lxml')
+                  for tag in soup.find_all(['meta','img','source','a','video']):
+                      for key in ('content','src','href','data-src','data-original','data-lazy-src','poster'):
+                          v=tag.get(key)
+                          if not v: continue
+                          v=html.unescape(v).replace('\\/','/')
+                          if re.search(r'\.(?:jpe?g|png|webp)(?:[?#].*)?$',v,re.I): imgs.add(urljoin(r.url,v))
+                          if re.search(r'\.(?:m3u8|mp4)(?:[?#].*)?$',v,re.I): streams.add(urljoin(r.url,v))
                       for key in ('srcset','data-srcset'):
-                          val = tag.get(key)
-                          if val:
-                              for part in val.split(','):
-                                  u = part.strip().split()[0].replace('\\/','/')
-                                  if re.search(r'\.(?:jpe?g|png|webp)(?:[?#].*)?$', u, re.I):
-                                      found.add(urljoin(r.url, u))
-                  for s in soup.find_all('script', type=re.compile('ld\+json', re.I)):
-                      try:
-                          add_json_images(json.loads(s.get_text(strip=True)), found)
-                      except Exception:
-                          pass
-                  raw = html.unescape(text).replace('\\/','/')
-                  for u in re.findall(r'https?://[^"\'<>\\s]+?\.(?:jpe?g|png|webp)(?:\?[^"\'<>\\s]*)?', raw, re.I):
-                      found.add(u)
-                  found = {u for u in found if not obvious_site_asset(u)}
-                  with lock:
-                      before = len(asset_rows)
-                  for n, u in enumerate(sorted(found), 1):
-                      download_image(u, r.url, f'p{idx:03d}_{n:03d}')
-                  with lock:
-                      new = asset_rows[before:]
-                  saved = sum(x.get('status') == 'SAVED' for x in new)
-                  dup = sum(x.get('status') == 'SHA_DUPLICATE' for x in new)
-                  excluded = len(new) - saved - dup
-                  row = {'page_url':page_url,'final_url':r.url,'status':status,'found':len(found),'saved':saved,'sha_duplicate':dup,'excluded':excluded,'seconds':round(time.time()-started,2)}
-              except Exception as e:
-                  row = {'page_url':page_url,'status':'ERROR','found':0,'saved':0,'sha_duplicate':0,'excluded':0,'seconds':round(time.time()-started,2),'note':repr(e)[:240]}
-              with lock:
-                  page_rows.append(row)
+                          v=tag.get(key)
+                          if v:
+                              for part in v.split(','):
+                                  x=part.strip().split()[0]
+                                  if re.search(r'\.(?:jpe?g|png|webp)(?:[?#].*)?$',x,re.I): imgs.add(urljoin(r.url,x))
+                  for sc in soup.find_all('script'):
+                      tx=sc.string or sc.get_text(' ',strip=True)
+                      if not tx: continue
+                      try: add_json(json.loads(tx),imgs,streams)
+                      except Exception: pass
+                  raw=html.unescape(text).replace('\\/','/')
+                  for x in re.findall(r'https?://[^"\'<>\s]+?\.(?:jpe?g|png|webp)(?:\?[^"\'<>\s]*)?',raw,re.I): imgs.add(x)
+                  for x in re.findall(r'https?://[^"\'<>\s]+?\.(?:m3u8|mp4)(?:\?[^"\'<>\s]*)?',raw,re.I): streams.add(x)
+                  before=len(rows)
+                  for n,x in enumerate(sorted(imgs),1): dl_image(x,r.url,f's{idx:02d}_{n:03d}')
+                  new=rows[before:]; saved=sum(x['status']=='SAVED' for x in new); dup=sum(x['status']=='SHA_DUPLICATE' for x in new); exc=len(new)-saved-dup
+                  pages.append({'page_url':u,'final_url':r.url,'status':status,'found_images':len(imgs),'found_streams':len(streams),'saved':saved,'sha_duplicate':dup,'excluded':exc,'seconds':round(time.time()-started,2)})
+                  media.append({'source_page':r.url,'streams':sorted(streams)})
+              except Exception as e: pages.append({'page_url':u,'status':'ERROR','found_images':0,'found_streams':0,'saved':0,'sha_duplicate':0,'excluded':0,'seconds':round(time.time()-started,2),'note':repr(e)[:240]})
 
-          for i, u in enumerate(direct_seeds, 1):
-              download_image(u, u, f'direct_{i:03d}', True)
+          for i,u in enumerate(direct,1): dl_image(u,u,f'direct_s{i:02d}',True)
+          for i,u in enumerate(page_seeds,1): crawl(i,u)
 
-          with ThreadPoolExecutor(max_workers=7) as ex:
-              futures = [ex.submit(crawl_page, x) for x in enumerate(page_seeds, 1)]
-              for f in as_completed(futures):
-                  f.result()
-
-          pdf_rows = []
-          for i, u in enumerate(pdf_seeds, 1):
+          video_rows=[]
+          candidates=[]
+          for m in media:
+              for s in m['streams']:
+                  if s not in [x[1] for x in candidates]: candidates.append((m['source_page'],s))
+          for i,(source,s) in enumerate(candidates[:20],1):
+              out=TMP/f'video_{i:02d}.mp4'
               try:
-                  r = request(u, 40)
-                  if r.status_code != 200:
-                      raise RuntimeError(f'HTTP_{r.status_code}')
-                  pdf = TMP / f'official_{i:02d}.pdf'
-                  pdf.write_bytes(r.content)
-                  prefix = TMP / f'official_{i:02d}_page'
-                  cp = subprocess.run(['pdftoppm','-png','-r','180',str(pdf),str(prefix)], text=True, capture_output=True, timeout=180)
-                  pages = []
-                  for pageno, p in enumerate(sorted(TMP.glob(f'official_{i:02d}_page-*.png')), 1):
-                      saved = save_image_bytes(p.read_bytes(), u, u, f'official_pdf_{i:02d}_p{pageno:02d}', True)
-                      if saved:
-                          pages.append(saved)
-                      p.unlink(missing_ok=True)
-                  pdf_rows.append({'url':u,'status':'SAVED','pages':pages,'stderr':cp.stderr[-300:]})
-                  pdf.unlink(missing_ok=True)
-              except Exception as e:
-                  pdf_rows.append({'url':u,'status':'ERROR','note':repr(e)[:300]})
+                  cmd=[sys.executable,'-m','yt_dlp','--no-playlist','--retries','3','--fragment-retries','3','-f','best[height<=720]/best','--merge-output-format','mp4','--max-filesize','180M','-o',str(out),s]
+                  cp=subprocess.run(cmd,text=True,capture_output=True,timeout=600)
+                  if not out.exists():
+                      found=list(TMP.glob(f'video_{i:02d}.*'))
+                      found=[p for p in found if p.suffix.lower() in {'.mp4','.mkv','.webm','.mov','.m4v'}]
+                      if found: out=found[0]
+                  if out.exists() and out.stat().st_size>100000:
+                      data=out.read_bytes(); h=sha(data)
+                      if h not in seen:
+                          dest=ASSETS/f'実動画_{i:02d}_{h[:12]}{out.suffix.lower()}'; shutil.copy2(out,dest); seen[h]=str(dest)
+                          pr=subprocess.run(['ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height:format=duration','-of','json',str(dest)],text=True,capture_output=True,timeout=60)
+                          obj=json.loads(pr.stdout or '{}'); st=(obj.get('streams') or [{}])[0]
+                          rows.append({'source_page':source,'asset_url':s,'status':'SAVED_VIDEO','file':str(dest),'sha256':h,'width':st.get('width',''),'height':st.get('height',''),'bytes':len(data),'note':(obj.get('format') or {}).get('duration','')})
+                          video_rows.append({'source_page':source,'stream':s,'status':'SAVED','file':str(dest)})
+                      else: video_rows.append({'source_page':source,'stream':s,'status':'SHA_DUPLICATE','file':seen[h]})
+                  else: video_rows.append({'source_page':source,'stream':s,'status':'FAILED','stderr':cp.stderr[-600:]})
+              except Exception as e: video_rows.append({'source_page':source,'stream':s,'status':'ERROR','note':repr(e)[:300]})
+              for p in TMP.glob(f'video_{i:02d}.*'): p.unlink(missing_ok=True)
 
-          def probe_video(path: Path) -> tuple[float, int, int]:
-              cp = subprocess.run(['ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height:format=duration','-of','json',str(path)], text=True, capture_output=True, timeout=60)
-              obj = json.loads(cp.stdout or '{}')
-              duration = float((obj.get('format') or {}).get('duration') or 0)
-              streams = obj.get('streams') or [{}]
-              return duration, int(streams[0].get('width') or 0), int(streams[0].get('height') or 0)
-
-          def collect_video(vid: str) -> dict:
-              url = 'https://www.youtube.com/watch?v=' + vid
-              thumb = 'https://i.ytimg.com/vi/' + vid + '/maxresdefault.jpg'
-              download_image(thumb, url, 'ytthumb_' + slug(vid), True)
-              vdir = TMP / ('video_' + vid)
-              vdir.mkdir(parents=True, exist_ok=True)
-              outtpl = str(vdir / ('%(id)s_%(title).90B.%(ext)s'))
-              cmd = [sys.executable,'-m','yt_dlp','--no-playlist','--newline','--retries','4','--fragment-retries','4',
-                     '-f','bestvideo[height<=720]+bestaudio/best[height<=720]','--merge-output-format','mp4',
-                     '--write-info-json','--max-filesize','160M','-o',outtpl,url]
-              try:
-                  cp = subprocess.run(cmd, text=True, capture_output=True, timeout=900)
-                  candidates = [p for p in vdir.iterdir() if p.suffix.lower() in {'.mp4','.webm','.mkv','.mov','m4v'}]
-                  info_files = list(vdir.glob('*.info.json'))
-                  title = ''
-                  original_url = url
-                  if info_files:
-                      try:
-                          info = json.loads(info_files[0].read_text(encoding='utf-8'))
-                          title = info.get('title') or ''
-                          original_url = info.get('webpage_url') or url
-                      except Exception:
-                          pass
-                  saved_video = ''
-                  frames = []
-                  if candidates:
-                      src = max(candidates, key=lambda p:p.stat().st_size)
-                      duration, w, hgt = probe_video(src)
-                      data = src.read_bytes()
-                      vh = sha256(data)
-                      with lock:
-                          prior = seen_sha.get(vh)
-                      if not prior:
-                          name = f'youtube_{vid}_{slug(title,55)}_{vh[:10]}{src.suffix.lower()}'
-                          dest = ASSETS / name
-                          shutil.copy2(src, dest)
-                          with lock:
-                              seen_sha[vh] = str(dest)
-                          add_row({'record':'asset','source_page':url,'asset_url':original_url,'status':'SAVED_VIDEO','file':str(dest),'sha256':vh,'width':w,'height':hgt,'bytes':len(data),'note':title})
-                          saved_video = str(dest)
-                      else:
-                          add_row({'record':'asset','source_page':url,'asset_url':original_url,'status':'SHA_DUPLICATE_VIDEO','file':prior,'sha256':vh,'width':w,'height':hgt,'bytes':len(data),'note':title})
-                      if duration > 1:
-                          for j, frac in enumerate((0.16,0.50,0.84), 1):
-                              t = max(0.2, min(duration - 0.2, duration * frac))
-                              frame = vdir / f'frame_{j}.jpg'
-                              fp = subprocess.run(['ffmpeg','-y','-ss',f'{t:.3f}','-i',str(src),'-frames:v','1','-q:v','2',str(frame)], text=True, capture_output=True, timeout=120)
-                              if frame.exists() and frame.stat().st_size > 0:
-                                  saved = save_image_bytes(frame.read_bytes(), original_url, url, f'youtube_{vid}_frame{j:02d}', True)
-                                  if saved:
-                                      frames.append(saved)
-                  shutil.rmtree(vdir, ignore_errors=True)
-                  return {'video_id':vid,'url':url,'returncode':cp.returncode,'title':title,'saved_video':saved_video,'frames':frames,'stdout_tail':cp.stdout[-600:],'stderr_tail':cp.stderr[-900:]}
-              except Exception as e:
-                  shutil.rmtree(vdir, ignore_errors=True)
-                  return {'video_id':vid,'url':url,'returncode':-1,'title':'','saved_video':'','frames':[],'stderr_tail':repr(e)[:500]}
-
-          with ThreadPoolExecutor(max_workers=4) as ex:
-              futures = [ex.submit(collect_video, vid) for vid in video_ids]
-              for f in as_completed(futures):
-                  video_rows.append(f.result())
-
-          inventory = []
+          def writecsv(p,data):
+              keys=[]
+              for r in data:
+                  for k in r:
+                      if k not in keys: keys.append(k)
+              with p.open('w',encoding='utf-8-sig',newline='') as f:
+                  if keys:
+                      w=csv.DictWriter(f,fieldnames=keys); w.writeheader(); w.writerows(data)
+          inv=[]
           for p in sorted(ASSETS.iterdir()):
-              if not p.is_file():
-                  continue
-              data = p.read_bytes()
-              h = sha256(data)
-              w = hgt = ''
-              kind = 'video' if p.suffix.lower() in {'.mp4','.webm','.mkv','.mov','.m4v'} else 'image'
-              if kind == 'image':
+              b=p.read_bytes(); h=sha(b); kind='video' if p.suffix.lower() in {'.mp4','.mkv','.webm','.mov','.m4v'} else 'image'; w=hh=''
+              if kind=='image':
                   try:
-                      with Image.open(p) as im:
-                          w, hgt = im.size
-                  except Exception:
-                      pass
-              else:
-                  try:
-                      _, w, hgt = probe_video(p)
-                  except Exception:
-                      pass
-              inventory.append({'file':str(p),'sha256':h,'bytes':len(data),'width':w,'height':hgt,'kind':kind,'suffix':p.suffix.lower()})
-
-          def write_csv(path: Path, rows: list[dict]) -> None:
-              keys = []
-              for row in rows:
-                  for k in row:
-                      if k not in keys:
-                          keys.append(k)
-              with path.open('w', encoding='utf-8-sig', newline='') as f:
-                  if not keys:
-                      return
-                  w = csv.DictWriter(f, fieldnames=keys)
-                  w.writeheader()
-                  w.writerows(rows)
-
-          write_csv(META / 'asset_discovery.csv', asset_rows)
-          write_csv(META / 'page_reconciliation.csv', page_rows)
-          write_csv(META / 'inventory.csv', inventory)
-          (META / 'pdf_status.json').write_text(json.dumps(pdf_rows, ensure_ascii=False, indent=2), encoding='utf-8')
-          (META / 'video_status.json').write_text(json.dumps(video_rows, ensure_ascii=False, indent=2), encoding='utf-8')
-          summary = {
-              'page_seed_count': len(page_seeds),
-              'direct_seed_count': len(direct_seeds),
-              'pdf_seed_count': len(pdf_seeds),
-              'video_seed_count': len(video_ids),
-              'unique_asset_files': len(inventory),
-              'image_files': sum(x['kind']=='image' for x in inventory),
-              'video_files': sum(x['kind']=='video' for x in inventory),
-              'saved_image_records': sum(x.get('status')=='SAVED' for x in asset_rows),
-              'saved_video_records': sum(x.get('status')=='SAVED_VIDEO' for x in asset_rows),
-              'sha_duplicate_records': sum('SHA_DUPLICATE' in str(x.get('status')) for x in asset_rows),
-              'generated_at_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-          }
-          (META / 'summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(json.dumps(summary, ensure_ascii=False, indent=2))
+                      with Image.open(p) as im: w,hh=im.size
+                  except Exception: pass
+              inv.append({'file':str(p),'sha256':h,'bytes':len(b),'width':w,'height':hh,'kind':kind})
+          writecsv(META/'asset_discovery.csv',rows); writecsv(META/'page_reconciliation.csv',pages); writecsv(META/'inventory.csv',inv)
+          (META/'media_candidates.json').write_text(json.dumps(media,ensure_ascii=False,indent=2),encoding='utf-8')
+          (META/'video_status.json').write_text(json.dumps(video_rows,ensure_ascii=False,indent=2),encoding='utf-8')
+          summary={'pages':len(page_seeds),'direct':len(direct),'discovered_streams':len(candidates),'unique_files':len(inv),'images':sum(x['kind']=='image' for x in inv),'videos':sum(x['kind']=='video' for x in inv),'generated_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())}
+          (META/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8'); print(json.dumps(summary,ensure_ascii=False,indent=2))
           PY
-      - name: Upload media artifact
+      - name: Upload supplement
         uses: actions/upload-artifact@v4
         with:
-          name: fukuoka-assembly-media-v2
-          path: output/
+          name: fukuoka-assembly-media-supplement
+          path: supplement/
           if-no-files-found: error
           compression-level: 3
           retention-days: 1
