@@ -1,0 +1,46 @@
+name: ChatGPT collect Rechallenge Tokyo run2 20260827
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-collect-rechallenge-run2-20260827.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install media collection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg poppler-utils fonts-noto-cjk
+          python -m pip install requests beautifulsoup4 lxml pillow imagehash yt-dlp playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Restore and verify collector
+        run: |
+          base64 -d tmp/rechallenge_collector_20260827.part01 | gzip -d > /tmp/rechallenge_collector.py
+          test "$(sha256sum /tmp/rechallenge_collector.py | cut -d' ' -f1)" = "6253270cc9502499d9e9235f713515c8019e27568348b2fbdaf518804b0502ed"
+          python -m py_compile /tmp/rechallenge_collector.py
+
+      - name: Collect public real media
+        run: python /tmp/rechallenge_collector.py
+
+      - name: Upload collected media
+        uses: actions/upload-artifact@v4
+        with:
+          name: rechallenge-raw-run2-20260827
+          path: rechallenge_output/
+          if-no-files-found: error
+          compression-level: 5
+          retention-days: 1
