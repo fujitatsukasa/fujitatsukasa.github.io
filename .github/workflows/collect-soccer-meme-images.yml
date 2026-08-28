@@ -1,207 +1,198 @@
-name: Collect Actual Soccer Meme Images
+name: Temporary Fukuoka Assembly Media Supplement
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - '.soccer_collector_trigger/**'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/collect-soccer-meme-images.yml'
-  workflow_dispatch:
+      - '.chatgpt_fukuoka_media_trigger'
 
 permissions:
   contents: read
 
 jobs:
-  collect:
+  supplement:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Reconstruct 253-row source list
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 lxml pillow yt-dlp
+      - name: Collect newly discovered galleries and direct streams
         shell: bash
         run: |
-          mkdir -p .collector_tmp artifact work
-          cat meme_research/soccer_collector/sources_00.b64 meme_research/soccer_collector/sources_01.b64 | base64 -d | gzip -d > .collector_tmp/sources.csv
-          python - <<'PY' | tee artifact/入力一覧.txt
-          import csv
-          with open('.collector_tmp/sources.csv', encoding='utf-8-sig', newline='') as f:
-              r=csv.DictReader(f); rows=list(r)
-          print('source_rows',len(rows))
-          print('headers',r.fieldnames)
-          assert len(rows)==253, len(rows)
-          PY
-
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check requests beautifulsoup4 pillow lxml ddgs
-
-      - name: Write strict actual-image collector
-        shell: bash
-        run: |
-          cat > .collector_tmp/collector.py <<'PY'
+          python <<'PY'
           from __future__ import annotations
-          import csv, hashlib, html, io, json, os, re, time, unicodedata, urllib.parse
+          import csv, hashlib, html, json, re, shutil, subprocess, sys, time
           from pathlib import Path
+          from urllib.parse import urljoin, urlparse, unquote
           import requests
           from bs4 import BeautifulSoup
-          from PIL import Image, ImageFile
-          from ddgs import DDGS
+          from PIL import Image
 
-          ImageFile.LOAD_TRUNCATED_IMAGES=True
-          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36'
-          H={'User-Agent':UA,'Accept-Language':'ja,en-US;q=0.8,en;q=0.6'}
-          IH={'User-Agent':UA,'Accept':'image/avif,image/webp,image/apng,image/*,*/*;q=0.8','Referer':'https://www.google.com/'}
-          BAD=('favicon','logo','sprite','icon','avatar','placeholder','tracking','pixel','banner','advert','default','brandmark','site-header','footer')
-          SOCCER=('football','soccer','fifa','uefa','jleague','j-league','premier league','world cup','サッカー','蹴球','w杯','ワールドカップ','代表','選手','監督','ゴール','試合','jリーグ')
-          TRUST=('knowyourmeme.com','jleague.jp','jfa.jp','fifa.com','uefa.com','the-afc.com','nikkansports.com','sponichi.co.jp','soccerdigestweb.com','football-zone.net','goal.com','theguardian.com','bbc.com','skysports.com','espn.com','reddit.com','x.com','twitter.com','youtube.com')
-          EXT={'.jpg','.jpeg','.png','.gif','.webp','.avif','.bmp'}
-          MIN_BYTES=8000; MIN_W=240; MIN_H=160; MAX_BYTES=20*1024*1024
+          ROOT=Path('supplement'); ASSETS=ROOT/'assets'; META=ROOT/'meta'; TMP=ROOT/'tmp'
+          for d in (ASSETS,META,TMP): d.mkdir(parents=True,exist_ok=True)
+          H={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36','Accept-Language':'ja,en-US;q=0.8,en;q=0.6'}
+          session=requests.Session(); session.headers.update(H)
+          rows=[]; pages=[]; media=[]; seen={}
+          page_seeds=[
+            'https://www.fnn.jp/articles/-/1102437?display=full',
+            'https://news.tnc.co.jp/news/articles/NID2026082631811',
+            'https://mainichi.jp/articles/20260827/ddl/k40/010/070000c',
+            'https://newsdig.tbs.co.jp/articles/rkb/2830179',
+            'https://newsdig.tbs.co.jp/articles/-/2830179?page=4',
+            'https://kbc.co.jp/gyutto/detail.php?cdid=47081',
+            'https://news.tnc.co.jp/news/articles/NID2026080531549',
+            'https://www.fnn.jp/articles/-/1096862',
+            'https://news.tv-asahi.co.jp/news_society/articles/900197296.html',
+            'https://news.tv-asahi.co.jp/news_society/articles/900195977.html',
+            'https://www.gikai.pref.fukuoka.lg.jp/site/honkaigi/saiketsu-0808.html',
+            'https://www.gikai.pref.fukuoka.lg.jp/site/honkaigi/gian-0808.html',
+            'https://www.gikai.pref.fukuoka.lg.jp/site/topics/gaiyou-021215.html',
+            'https://www.gikai.pref.fukuoka.lg.jp/topics/topics-list-r02.html',
+            'https://www.gikai.pref.fukuoka.lg.jp/topics/topics-list-r03.html',
+            'https://nakamurakatsuki.jp/2026/07/30/post-1722/'
+          ]
+          direct=[
+            'https://news.tnc.co.jp/data/local/NID202606113076701.jpg',
+            'https://cdp-japan.jp/files/v3Tt/AK5G/WnyI/SvJ5/v3TtAK5GWnyISvJ55JtgURcM_tn960.jpg',
+            'https://image.news.livedoor.com/newsimage/stf/1/2/12f4c_1110_1f5297ac87fb774908dfd915b88d6165.jpeg',
+            'https://news.tnc.co.jp/data/local/NID202608253179301.jpg'
+          ]
 
-          def norm(s):
-              s=unicodedata.normalize('NFKC',s or '').lower()
-              return re.sub(r'[^0-9a-zぁ-んァ-ヶ一-龠]+','',s)
-          def safe(s,n=70):
-              s=unicodedata.normalize('NFKC',s or '')
-              s=re.sub(r'[\\/:*?"<>|\x00-\x1f]','_',s); s=re.sub(r'\s+','_',s).strip(' ._')
-              return (s or '名称なし')[:n]
-          def direct_image(u):
-              return Path(urllib.parse.urlsplit(u).path).suffix.lower() in EXT
-          def name_ok(name,text):
-              nn=norm(name); tt=norm(text)
-              if len(nn)>=3 and nn in tt: return True
-              parts=[norm(x) for x in re.split(r'[／/・|｜（）()「」『』:：,， ]+',name) if len(norm(x))>=3]
-              return bool(parts) and sum(p in tt for p in parts)>=min(2,len(parts))
-          def soccer_ok(text):
-              low=(text or '').lower(); return any(x in low for x in SOCCER)
-          def bad_url(u):
-              low=u.lower(); return any(x in low for x in BAD) or low.startswith('data:')
-          def get_html(s,u):
+          def sha(b): return hashlib.sha256(b).hexdigest()
+          def slug(s,n=70):
+              s=unquote(s); s=re.sub(r'[^0-9A-Za-z._-]+','_',s).strip('._')
+              return (s or 'asset')[:n]
+          def get(u,t=35): return session.get(u,timeout=t,allow_redirects=True)
+          def save_image(data,u,source,prefix,force=False):
+              h=sha(data)
+              if h in seen:
+                  rows.append({'source_page':source,'asset_url':u,'status':'SHA_DUPLICATE','file':seen[h],'sha256':h,'width':'','height':'','bytes':len(data),'note':''}); return None
+              p=TMP/(prefix+'_'+h[:12]+'.bin'); p.write_bytes(data)
               try:
-                  r=s.get(u,headers=H,timeout=18,allow_redirects=True)
-                  if r.status_code<400 and 'html' in r.headers.get('content-type','').lower():
-                      r.encoding=r.apparent_encoding or r.encoding
-                      return r.text,r.url,r.status_code
-                  return '',r.url,r.status_code
-              except Exception:return '',u,0
-          def page_candidates(page,url,name):
-              if not page:return []
-              soup=BeautifulSoup(page,'lxml')
-              title=' '.join([soup.title.get_text(' ',strip=True) if soup.title else '',soup.find('h1').get_text(' ',strip=True) if soup.find('h1') else ''])
-              if not name_ok(name,title+' '+url): return []
-              out=[]
-              for a,v,sc in [('property','og:image',130),('property','og:image:secure_url',130),('name','twitter:image',125),('name','twitter:image:src',125),('itemprop','image',115)]:
-                  for t in soup.find_all('meta',attrs={a:v}):
-                      u=urllib.parse.urljoin(url,html.unescape(t.get('content','')).strip())
-                      if u.startswith(('http://','https://')) and not bad_url(u): out.append((sc,u,url,'page_meta',title))
-              for u in re.findall(r'https://i\.kym-cdn\.com/(?:photos|entries)/images/(?:original|newsfeed|masonry)/[^"\'<>\\s]+',page):
-                  if not bad_url(u): out.append((145,u,url,'kym_embedded',title))
-              return out
-          def search_candidates(name,query):
-              q=(query or f'"{name}" サッカー ミーム 画像 元ネタ').strip()
-              out=[]
+                  with Image.open(p) as im: im.load(); w,hh=im.size; fmt=(im.format or 'JPEG').upper()
+                  ext={'JPEG':'.jpg','PNG':'.png','WEBP':'.webp','TIFF':'.tif','BMP':'.bmp'}.get(fmt,'.jpg')
+                  if not force and (w<500 or hh<280):
+                      p.unlink(missing_ok=True); rows.append({'source_page':source,'asset_url':u,'status':'EXCLUDED_LOW_RES','file':'','sha256':h,'width':w,'height':hh,'bytes':len(data),'note':fmt}); return None
+                  dest=ASSETS/(prefix+'_'+h[:12]+ext); p.replace(dest); seen[h]=str(dest)
+                  rows.append({'source_page':source,'asset_url':u,'status':'SAVED','file':str(dest),'sha256':h,'width':w,'height':hh,'bytes':len(data),'note':fmt}); return str(dest)
+              except Exception as e:
+                  p.unlink(missing_ok=True); rows.append({'source_page':source,'asset_url':u,'status':'EXCLUDED_NOT_IMAGE','file':'','sha256':h,'width':'','height':'','bytes':len(data),'note':repr(e)[:160]}); return None
+          def dl_image(u,source,prefix,force=False):
               try:
-                  for r in DDGS().images(q,max_results=25,safesearch='moderate'):
-                      iu=r.get('image') or r.get('thumbnail') or ''
-                      sp=r.get('url') or r.get('source') or ''
-                      title=r.get('title') or ''
-                      text=' '.join([title,sp,iu])
-                      host=urllib.parse.urlsplit(sp).netloc.lower()
-                      if not iu.startswith(('http://','https://')) or bad_url(iu): continue
-                      if not name_ok(name,text): continue
-                      if not (soccer_ok(text) or any(h in host for h in TRUST)): continue
-                      out.append((95,iu,sp,'image_search',title))
-              except Exception: pass
-              return out
-          def download(s,cand,outbase):
-              score,iu,sp,disc,title=cand
+                  r=get(u)
+                  if r.status_code!=200: rows.append({'source_page':source,'asset_url':u,'status':f'HTTP_{r.status_code}','file':'','sha256':'','width':'','height':'','bytes':len(r.content),'note':''}); return
+                  if 'text/html' in r.headers.get('content-type','').lower(): rows.append({'source_page':source,'asset_url':u,'status':'EXCLUDED_HTML','file':'','sha256':'','width':'','height':'','bytes':len(r.content),'note':''}); return
+                  save_image(r.content,r.url,source,prefix,force)
+              except Exception as e: rows.append({'source_page':source,'asset_url':u,'status':'ERROR','file':'','sha256':'','width':'','height':'','bytes':'','note':repr(e)[:200]})
+          def add_json(obj,imgs,streams):
+              if isinstance(obj,dict):
+                  for k,v in obj.items():
+                      if isinstance(v,str):
+                          s=html.unescape(v).replace('\\/','/')
+                          if re.search(r'\.(?:jpe?g|png|webp)(?:\?|$)',s,re.I): imgs.add(s)
+                          if re.search(r'\.(?:m3u8|mp4)(?:\?|$)',s,re.I): streams.add(s)
+                      elif isinstance(v,(dict,list)): add_json(v,imgs,streams)
+              elif isinstance(obj,list):
+                  for x in obj: add_json(x,imgs,streams)
+          def crawl(idx,u):
+              started=time.time(); imgs=set(); streams=set()
               try:
-                  r=s.get(iu,headers=IH,timeout=25,allow_redirects=True,stream=True)
-                  if r.status_code>=400:return None,'http_'+str(r.status_code)
-                  data=b''
-                  for ch in r.iter_content(65536):
-                      data+=ch
-                      if len(data)>MAX_BYTES:return None,'too_large'
-                  if len(data)<MIN_BYTES:return None,'too_small_bytes'
-                  im=Image.open(io.BytesIO(data)); im.seek(0); w,h=im.size
-                  if w<MIN_W or h<MIN_H or max(w/h,h/w)>5.5:return None,'bad_dimensions'
-                  fmt=(im.format or '').lower(); ext={'jpeg':'.jpg','jpg':'.jpg','png':'.png','gif':'.gif','webp':'.webp','avif':'.avif','bmp':'.bmp'}.get(fmt)
-                  if not ext:return None,'unsupported'
-                  p=outbase.with_suffix(ext); p.write_bytes(data)
-                  return {'file':str(p),'image_url':iu,'final_url':r.url,'source_page':sp,'discovery':disc,'title':title,'width':w,'height':h,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'format':fmt},'ok'
-              except Exception as e:return None,'error_'+type(e).__name__
-          def write_explanation(folder,row,rec):
-              text=f'''ミームID：{row.get('meme_id','')}\n名称：{row.get('名称','')}\n地域：{row.get('地域','')}\n\n何の画像か：\nネット上で実際に公開されていた画像を無加工で収集した代表例です\n\n起源・背景：\n{row.get('起源・背景') or row.get('背景') or '詳細参考台帳を参照'}\n\n現在の意味：\n{row.get('現在の意味') or '詳細参考台帳を参照'}\n\n自然な使い方：\n{row.get('自然な使い方') or row.get('典型的な発動場面') or '詳細参考台帳を参照'}\n\n避ける場面：\n{row.get('避ける場面') or row.get('禁止理由') or '人物への恒常的な侮辱、誤帰属、文脈違いでの使用を避ける'}\n\n画像掲載元：\n{rec.get('source_page','')}\n\n直接画像URL：\n{rec.get('image_url','')}\n\n権利状態：\n未確認。研究・参照用。公開・商用利用前に権利者と利用条件を個別確認してください\n'''
-              (folder/'ミーム解説.txt').write_text(text,encoding='utf-8')
-          inp=Path('.collector_tmp/sources.csv'); out=Path('work/サッカーミーム_実物画像素材'); out.mkdir(parents=True,exist_ok=True)
-          s=requests.Session(); s.headers.update(H)
-          rows=list(csv.DictReader(inp.open(encoding='utf-8-sig',newline='')))
-          ledger=[]; missing=[]
-          for idx,row in enumerate(rows,1):
-              mid=(row.get('meme_id') or f'M{idx:03d}').strip(); name=(row.get('名称') or mid).strip(); region=(row.get('地域') or '未分類').strip()
-              prohibited=(row.get('禁止理由') or '').strip()
-              category='使用禁止・研究用' if prohibited else region
-              folder=out/category/f'{mid}_{safe(name)}'; folder.mkdir(parents=True,exist_ok=True)
-              ref=(row.get('参照URL') or '').strip(); query=(row.get('検索クエリ') or '').strip()
-              cands=[]
-              if ref:
-                  if direct_image(ref): cands.append((150,ref,ref,'direct_reference',name))
-                  else:
-                      ph,fu,st=get_html(s,ref); cands += page_candidates(ph,fu,name)
-              cands += search_candidates(name,query)
-              # exact-source candidates first, one image only
-              seen=set(); rec=None; attempts=[]
-              for cand in sorted(cands,key=lambda x:x[0],reverse=True):
-                  if cand[1] in seen: continue
-                  seen.add(cand[1])
-                  got,status=download(s,cand,folder/f'{mid}_01')
-                  attempts.append({'image_url':cand[1],'source_page':cand[2],'discovery':cand[3],'score':cand[0],'title':cand[4],'status':status})
-                  if got:
-                      rec=got; break
-              info={'row':row,'downloaded_count':1 if rec else 0,'attempted_count':len(attempts),'attempts':attempts}
-              (folder/'取得情報.json').write_text(json.dumps(info,ensure_ascii=False,indent=2),encoding='utf-8')
-              if rec:
-                  write_explanation(folder,row,rec)
-                  ledger.append({'meme_id':mid,'region':region,'name':name,'category':category,'file_path':rec['file'],'status':'DOWNLOADED_ACTUAL','discovery':rec['discovery'],'source_page':rec['source_page'],'image_url':rec['image_url'],'final_url':rec['final_url'],'width':rec['width'],'height':rec['height'],'bytes':rec['bytes'],'sha256':rec['sha256'],'rights_status':'RIGHTS_CHECK_REQUIRED','note':'ネット上の実在画像。生成・再描画なし。'})
-              else:
-                  missing.append({'meme_id':mid,'地域':region,'名称':name,'状態':'未取得','参照URL':ref,'検索クエリ':query,'試行候補数':len(attempts),'禁止理由':prohibited})
-              if idx%10==0: print(f'{idx}/{len(rows)} acquired={len(ledger)} missing={len(missing)}',flush=True)
-              time.sleep(.05)
-          fields=['meme_id','region','name','category','file_path','status','discovery','source_page','image_url','final_url','width','height','bytes','sha256','rights_status','note']
-          with (out/'実物画像収集台帳.csv').open('w',encoding='utf-8-sig',newline='') as f:
-              w=csv.DictWriter(f,fieldnames=fields); w.writeheader(); w.writerows(ledger)
-          mfields=['meme_id','地域','名称','状態','参照URL','検索クエリ','試行候補数','禁止理由']
-          with (out/'未取得一覧.csv').open('w',encoding='utf-8-sig',newline='') as f:
-              w=csv.DictWriter(f,fieldnames=mfields); w.writeheader(); w.writerows(missing)
-          summary={'requested_memes':len(rows),'downloaded_memes':len(ledger),'not_acquired_memes':len(missing),'downloaded_images':len(ledger),'generated_images':0,'note':'全画像は公開ウェブから実際に取得。生成・再描画なし。権利は未確認。'}
-          (out/'収集サマリー.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
-          print(json.dumps(summary,ensure_ascii=False),flush=True)
+                  r=get(u); status=f'HTTP_{r.status_code}'
+                  if r.status_code!=200: pages.append({'page_url':u,'status':status,'found_images':0,'found_streams':0,'saved':0,'sha_duplicate':0,'excluded':0,'seconds':round(time.time()-started,2)}); return
+                  text=r.text; soup=BeautifulSoup(text,'lxml')
+                  for tag in soup.find_all(['meta','img','source','a','video']):
+                      for key in ('content','src','href','data-src','data-original','data-lazy-src','poster'):
+                          v=tag.get(key)
+                          if not v: continue
+                          v=html.unescape(v).replace('\\/','/')
+                          if re.search(r'\.(?:jpe?g|png|webp)(?:[?#].*)?$',v,re.I): imgs.add(urljoin(r.url,v))
+                          if re.search(r'\.(?:m3u8|mp4)(?:[?#].*)?$',v,re.I): streams.add(urljoin(r.url,v))
+                      for key in ('srcset','data-srcset'):
+                          v=tag.get(key)
+                          if v:
+                              for part in v.split(','):
+                                  x=part.strip().split()[0]
+                                  if re.search(r'\.(?:jpe?g|png|webp)(?:[?#].*)?$',x,re.I): imgs.add(urljoin(r.url,x))
+                  for sc in soup.find_all('script'):
+                      tx=sc.string or sc.get_text(' ',strip=True)
+                      if not tx: continue
+                      try: add_json(json.loads(tx),imgs,streams)
+                      except Exception: pass
+                  raw=html.unescape(text).replace('\\/','/')
+                  for x in re.findall(r'https?://[^"\'<>\s]+?\.(?:jpe?g|png|webp)(?:\?[^"\'<>\s]*)?',raw,re.I): imgs.add(x)
+                  for x in re.findall(r'https?://[^"\'<>\s]+?\.(?:m3u8|mp4)(?:\?[^"\'<>\s]*)?',raw,re.I): streams.add(x)
+                  before=len(rows)
+                  for n,x in enumerate(sorted(imgs),1): dl_image(x,r.url,f's{idx:02d}_{n:03d}')
+                  new=rows[before:]; saved=sum(x['status']=='SAVED' for x in new); dup=sum(x['status']=='SHA_DUPLICATE' for x in new); exc=len(new)-saved-dup
+                  pages.append({'page_url':u,'final_url':r.url,'status':status,'found_images':len(imgs),'found_streams':len(streams),'saved':saved,'sha_duplicate':dup,'excluded':exc,'seconds':round(time.time()-started,2)})
+                  media.append({'source_page':r.url,'streams':sorted(streams)})
+              except Exception as e: pages.append({'page_url':u,'status':'ERROR','found_images':0,'found_streams':0,'saved':0,'sha_duplicate':0,'excluded':0,'seconds':round(time.time()-started,2),'note':repr(e)[:240]})
+
+          for i,u in enumerate(direct,1): dl_image(u,u,f'direct_s{i:02d}',True)
+          for i,u in enumerate(page_seeds,1): crawl(i,u)
+
+          video_rows=[]
+          candidates=[]
+          for m in media:
+              for s in m['streams']:
+                  if s not in [x[1] for x in candidates]: candidates.append((m['source_page'],s))
+          for i,(source,s) in enumerate(candidates[:20],1):
+              out=TMP/f'video_{i:02d}.mp4'
+              try:
+                  cmd=[sys.executable,'-m','yt_dlp','--no-playlist','--retries','3','--fragment-retries','3','-f','best[height<=720]/best','--merge-output-format','mp4','--max-filesize','180M','-o',str(out),s]
+                  cp=subprocess.run(cmd,text=True,capture_output=True,timeout=600)
+                  if not out.exists():
+                      found=list(TMP.glob(f'video_{i:02d}.*'))
+                      found=[p for p in found if p.suffix.lower() in {'.mp4','.mkv','.webm','.mov','.m4v'}]
+                      if found: out=found[0]
+                  if out.exists() and out.stat().st_size>100000:
+                      data=out.read_bytes(); h=sha(data)
+                      if h not in seen:
+                          dest=ASSETS/f'実動画_{i:02d}_{h[:12]}{out.suffix.lower()}'; shutil.copy2(out,dest); seen[h]=str(dest)
+                          pr=subprocess.run(['ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height:format=duration','-of','json',str(dest)],text=True,capture_output=True,timeout=60)
+                          obj=json.loads(pr.stdout or '{}'); st=(obj.get('streams') or [{}])[0]
+                          rows.append({'source_page':source,'asset_url':s,'status':'SAVED_VIDEO','file':str(dest),'sha256':h,'width':st.get('width',''),'height':st.get('height',''),'bytes':len(data),'note':(obj.get('format') or {}).get('duration','')})
+                          video_rows.append({'source_page':source,'stream':s,'status':'SAVED','file':str(dest)})
+                      else: video_rows.append({'source_page':source,'stream':s,'status':'SHA_DUPLICATE','file':seen[h]})
+                  else: video_rows.append({'source_page':source,'stream':s,'status':'FAILED','stderr':cp.stderr[-600:]})
+              except Exception as e: video_rows.append({'source_page':source,'stream':s,'status':'ERROR','note':repr(e)[:300]})
+              for p in TMP.glob(f'video_{i:02d}.*'): p.unlink(missing_ok=True)
+
+          def writecsv(p,data):
+              keys=[]
+              for r in data:
+                  for k in r:
+                      if k not in keys: keys.append(k)
+              with p.open('w',encoding='utf-8-sig',newline='') as f:
+                  if keys:
+                      w=csv.DictWriter(f,fieldnames=keys); w.writeheader(); w.writerows(data)
+          inv=[]
+          for p in sorted(ASSETS.iterdir()):
+              b=p.read_bytes(); h=sha(b); kind='video' if p.suffix.lower() in {'.mp4','.mkv','.webm','.mov','.m4v'} else 'image'; w=hh=''
+              if kind=='image':
+                  try:
+                      with Image.open(p) as im: w,hh=im.size
+                  except Exception: pass
+              inv.append({'file':str(p),'sha256':h,'bytes':len(b),'width':w,'height':hh,'kind':kind})
+          writecsv(META/'asset_discovery.csv',rows); writecsv(META/'page_reconciliation.csv',pages); writecsv(META/'inventory.csv',inv)
+          (META/'media_candidates.json').write_text(json.dumps(media,ensure_ascii=False,indent=2),encoding='utf-8')
+          (META/'video_status.json').write_text(json.dumps(video_rows,ensure_ascii=False,indent=2),encoding='utf-8')
+          summary={'pages':len(page_seeds),'direct':len(direct),'discovered_streams':len(candidates),'unique_files':len(inv),'images':sum(x['kind']=='image' for x in inv),'videos':sum(x['kind']=='video' for x in inv),'generated_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())}
+          (META/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8'); print(json.dumps(summary,ensure_ascii=False,indent=2))
           PY
-
-      - name: Collect strict actual web images
-        shell: bash
-        run: |
-          set -o pipefail
-          python .collector_tmp/collector.py 2>&1 | tee artifact/収集ログ.txt
-
-      - name: Package result
-        shell: bash
-        run: |
-          cd work
-          zip -r -9 '../artifact/サッカーミーム_実物画像素材.zip' 'サッカーミーム_実物画像素材'
-          cd ..
-          cp 'work/サッカーミーム_実物画像素材/収集サマリー.json' artifact/
-          cp 'work/サッカーミーム_実物画像素材/未取得一覧.csv' artifact/
-          cp 'work/サッカーミーム_実物画像素材/実物画像収集台帳.csv' artifact/
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload supplement
+        uses: actions/upload-artifact@v4
         with:
-          name: soccer-meme-images-${{ github.run_id }}
-          path: artifact/
-          retention-days: 3
+          name: fukuoka-assembly-media-supplement
+          path: supplement/
           if-no-files-found: error
+          compression-level: 3
+          retention-days: 1
