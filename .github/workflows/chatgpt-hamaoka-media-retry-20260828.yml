@@ -1,0 +1,227 @@
+name: ChatGPT Hamaoka media retry
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-hamaoka-media-retry-20260828.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  retry-media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 lxml pillow yt-dlp
+      - name: Retry originals and article videos
+        shell: bash
+        run: |
+          python <<'PY'
+          from __future__ import annotations
+          import csv, hashlib, html, json, os, re, subprocess, sys, time
+          from pathlib import Path
+          from urllib.parse import urljoin, urlparse, unquote
+          import requests
+          from bs4 import BeautifulSoup
+          from PIL import Image
+
+          ROOT=Path('output_retry')
+          IMG=ROOT/'images'; VID=ROOT/'videos'; FRM=ROOT/'frames'; META=ROOT/'meta'; HTML=ROOT/'html'
+          for d in (IMG,VID,FRM,META,HTML): d.mkdir(parents=True,exist_ok=True)
+          s=requests.Session(); s.headers.update({'User-Agent':'ChatGPT-media-collector/1.0 (editorial research; contact via github.com/fujitatsukasa)','Accept-Language':'ja,en-US;q=0.7'})
+          rows=[]; vrows=[]; page_rows=[]; seen={}
+          def sh(data): return hashlib.sha256(data).hexdigest()
+          def slug(x,n=110):
+              x=unquote(str(x)); x=re.sub(r'[^0-9A-Za-z._-]+','_',x).strip('._'); return (x or 'asset')[:n]
+          def img_info(p):
+              try:
+                  with Image.open(p) as im: im.load(); return im.width,im.height,im.format or ''
+              except: return 0,0,''
+          def save_img(data,url,source,prefix,note=''):
+              h=sh(data)
+              if h in seen:
+                  rows.append({'source_page':source,'asset_url':url,'status':'SHA_DUPLICATE','file':seen[h],'sha256':h,'width':'','height':'','bytes':len(data),'note':note}); return None
+              ext=Path(urlparse(url).path).suffix.lower()
+              if ext=='.jpeg': ext='.jpg'
+              if ext not in ('.jpg','.png','.webp','.tif','.tiff','.bmp'): ext='.jpg'
+              p=IMG/f'{prefix}_{h[:12]}{ext}'; p.write_bytes(data); w,hgt,fmt=img_info(p)
+              if not w:
+                  p.unlink(missing_ok=True); rows.append({'source_page':source,'asset_url':url,'status':'EXCLUDED_NOT_IMAGE','file':'','sha256':h,'width':'','height':'','bytes':len(data),'note':note}); return None
+              seen[h]=str(p); rows.append({'source_page':source,'asset_url':url,'status':'SAVED','file':str(p),'sha256':h,'width':w,'height':hgt,'bytes':len(data),'note':(note+';format='+fmt).strip(';')}); return p
+          def get_retry(url,attempts=6,delay=2):
+              last=None
+              for i in range(attempts):
+                  try:
+                      r=s.get(url,timeout=60,allow_redirects=True)
+                      last=r
+                      if r.status_code==200: return r
+                      if r.status_code in (429,403,502,503,504): time.sleep(delay*(i+1)); continue
+                      return r
+                  except Exception as e:
+                      last=e; time.sleep(delay*(i+1))
+              return last
+          def dl_img(url,source,prefix,note=''):
+              r=get_retry(url)
+              if not hasattr(r,'status_code'):
+                  rows.append({'source_page':source,'asset_url':url,'status':'ERROR','file':'','sha256':'','width':'','height':'','bytes':'','note':repr(r)}); return
+              if r.status_code!=200:
+                  rows.append({'source_page':source,'asset_url':url,'status':f'HTTP_{r.status_code}','file':'','sha256':'','width':'','height':'','bytes':len(r.content),'note':note}); return
+              save_img(r.content,r.url,source,prefix,note)
+
+          commons='https://commons.wikimedia.org/w/api.php'
+          params={'action':'query','generator':'categorymembers','gcmtitle':'Category:Hamaoka_Nuclear_Power_Plant','gcmtype':'file','gcmlimit':'500','prop':'imageinfo','iiprop':'url|size|mime|extmetadata','format':'json'}
+          try:
+              r=get_retry(commons+'?'+requests.compat.urlencode(params)); r.raise_for_status()
+              pp=list((r.json().get('query') or {}).get('pages',{}).values())
+              before=len(rows)
+              for i,p in enumerate(sorted(pp,key=lambda q:q.get('title','')),1):
+                  ii=(p.get('imageinfo') or [{}])[0]; u=ii.get('url')
+                  if not u: continue
+                  em=ii.get('extmetadata') or {}
+                  note=json.dumps({'title':p.get('title'),'license':(em.get('LicenseShortName') or {}).get('value',''),'artist':(em.get('Artist') or {}).get('value',''),'descriptionurl':ii.get('descriptionurl',''),'expected_width':ii.get('width'),'expected_height':ii.get('height')},ensure_ascii=False)
+                  dl_img(u,'https://commons.wikimedia.org/wiki/Category:Hamaoka_Nuclear_Power_Plant',f'commons_retry_{i:03d}_{slug(p.get("title",""))}',note)
+                  time.sleep(2.2)
+              new=rows[before:]
+              page_rows.append({'page_url':'https://commons.wikimedia.org/wiki/Category:Hamaoka_Nuclear_Power_Plant','found':len(pp),'saved':sum(x['status']=='SAVED' for x in new),'sha_duplicate':sum(x['status']=='SHA_DUPLICATE' for x in new),'excluded':sum(x['status'] not in ('SAVED','SHA_DUPLICATE') for x in new),'status':'DONE'})
+          except Exception as e:
+              page_rows.append({'page_url':'https://commons.wikimedia.org/wiki/Category:Hamaoka_Nuclear_Power_Plant','found':0,'saved':0,'sha_duplicate':0,'excluded':0,'status':'ERROR','note':repr(e)})
+
+          direct=[
+            ('at_s_unit2_start','https://www.at-s.com/news/images/n168/1676344/IP2303111JA202700000_0000_CDSP.jpg','https://news.at-s.com/article/1676344'),
+            ('at_s_unit2_site','https://www.at-s.com/news/images/n171/1703210/IP250422TAN900106000_0001_CDSP.jpg','https://news.at-s.com/article/1703210'),
+            ('enefro_schedule','https://ene-fro.com/article/ef456_a1/image/entry01.jpg','https://ene-fro.com/article/ef456_a1/'),
+            ('mainichi_video_still','https://cf-images.ap-northeast-1.prod.boltdns.net/v1/static/5490902205001/c8886fd2-46ab-46b9-8d25-3c1a96973ec8/e7cd408f-c492-41b5-a54b-a2e32700e37b/1280x720/match/image.jpg','https://mainichi.jp/articles/20250317/k00/00m/040/143000c'),
+          ]
+          for i,(tag,u,src) in enumerate(direct,1): dl_img(u,src,f'direct_{i:02d}_{tag}')
+
+          pages=[
+            'https://www.tokai-tv.com/tokainews/feature/article_20260827_47968',
+            'https://www.tokai-tv.com/tokainews/feature/article_20260827_47964',
+            'https://www.fnn.jp/articles/-/1102848',
+            'https://www.fnn.jp/articles/-/1102352',
+            'https://www.fnn.jp/articles/-/1102343',
+            'https://www.fnn.jp/articles/-/1102852',
+            'https://look.satv.co.jp/content_news/politics_economic/96315',
+            'https://news.tv-asahi.co.jp/news_society/articles/000529023.html',
+            'https://www.nagoyatv.com/news/index_amp.html?id=036949',
+            'https://newsdig.tbs.co.jp/articles/sbs/2902253?display=1',
+            'https://www.home-tv.co.jp/news/content/?news_id=000529181',
+            'https://www.qab.co.jp/quebee/video/000529119/',
+            'https://www.khb-tv.co.jp/news/16838649',
+            'https://asahi.co.jp/webnews/pages/ann_000529023.html',
+            'https://www.nippon.com/ja/news/yjj2026082700331/',
+            'https://smart.asahi.com/v/article/ASV8W0HVNV8WULFA003M.php',
+          ]
+          media_re=re.compile(r'https?://[^"\'<>\\s]+?\.(?:m3u8|mp4|m4v|mov)(?:\?[^"\'<>\\s]*)?',re.I)
+          image_re=re.compile(r'https?://[^"\'<>\\s]+?\.(?:jpe?g|png|webp)(?:\?[^"\'<>\\s]*)?',re.I)
+          def fetch_page(url,depth=0):
+              try:
+                  r=get_retry(url,attempts=4,delay=2)
+                  if not hasattr(r,'status_code') or r.status_code!=200: return '',url
+                  text=html.unescape(r.text).replace('\\/','/')
+                  (HTML/f'{slug(url)}.html').write_text(text,encoding='utf-8',errors='ignore')
+                  return text,r.url
+              except: return '',url
+          page_media=[]
+          for pi,url in enumerate(pages,1):
+              text,resolved=fetch_page(url); soup=BeautifulSoup(text,'lxml') if text else None
+              imgs=set(); meds=set(); embeds=set()
+              if soup:
+                  for tag in soup.find_all(['meta','img','source','video','a']):
+                      for key in ('content','src','data-src','data-original','data-lazy-src','poster','href'):
+                          v=tag.get(key)
+                          if not v: continue
+                          v=html.unescape(v).replace('\\/','/'); u=urljoin(resolved,v)
+                          if image_re.match(u): imgs.add(u)
+                          if media_re.match(u): meds.add(u)
+                      for key in ('srcset','data-srcset'):
+                          v=tag.get(key)
+                          if v:
+                              for part in v.split(','):
+                                  u=urljoin(resolved,part.strip().split()[0])
+                                  if image_re.match(u): imgs.add(u)
+                  for tag in soup.find_all(['iframe','embed']):
+                      v=tag.get('src')
+                      if v: embeds.add(urljoin(resolved,v))
+              imgs.update(image_re.findall(text)); meds.update(media_re.findall(text))
+              for eu in list(embeds)[:8]:
+                  et,er=fetch_page(eu,1); meds.update(media_re.findall(et)); imgs.update(image_re.findall(et))
+              before=len(rows)
+              for n,u in enumerate(sorted(imgs),1): dl_img(u,resolved,f'article_{pi:02d}_{n:03d}')
+              new=rows[before:]
+              page_rows.append({'page_url':url,'resolved_url':resolved,'found_images':len(imgs),'saved_images':sum(x['status']=='SAVED' for x in new),'image_duplicates':sum(x['status']=='SHA_DUPLICATE' for x in new),'image_excluded':sum(x['status'] not in ('SAVED','SHA_DUPLICATE') for x in new),'found_media_urls':len(meds),'embeds':len(embeds),'status':'CRAWLED'})
+              for m in sorted(meds): page_media.append((resolved,m))
+
+          def probe(p):
+              cp=subprocess.run(['ffprobe','-v','error','-show_entries','stream=codec_type,width,height,codec_name','-show_entries','format=duration','-of','json',str(p)],capture_output=True,text=True,timeout=90)
+              if cp.returncode: return {}
+              try: return json.loads(cp.stdout)
+              except: return {}
+          def record_video(p,source,asset_url,method):
+              data=p.read_bytes(); h=sh(data); info=probe(p); streams=[x for x in (info.get('streams') or []) if x.get('codec_type')=='video']; st=streams[0] if streams else {}; dur=float((info.get('format') or {}).get('duration') or 0)
+              if not st.get('width') or not st.get('height') or dur<=0:
+                  p.unlink(missing_ok=True); vrows.append({'source_page':source,'asset_url':asset_url,'status':'EXCLUDED_NOT_DECODABLE','file':'','sha256':h,'method':method}); return
+              vrows.append({'source_page':source,'asset_url':asset_url,'status':'SAVED_VIDEO','file':str(p),'sha256':h,'width':st.get('width'),'height':st.get('height'),'duration':dur,'codec':st.get('codec_name'),'bytes':len(data),'method':method})
+              for fi,ratio in enumerate((0.08,0.45,0.82),1):
+                  t=max(0.2,dur*ratio); fp=FRM/f'{p.stem}_frame{fi}_{int(t)}s.jpg'
+                  cp=subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-ss',f'{t:.3f}','-i',str(p),'-frames:v','1','-q:v','2',str(fp)],capture_output=True,text=True,timeout=180)
+                  if cp.returncode==0 and fp.exists(): save_img(fp.read_bytes(),source,f'{asset_url}#t={t:.3f}',f'{p.stem}_frame{fi}','public_web_video_frame',f'parent={p.name};method={method}')
+
+          for i,url in enumerate(pages,1):
+              out=str(VID/f'publisher_{i:02d}_%(id)s_%(title).80B.%(ext)s')
+              cmd=[sys.executable,'-m','yt_dlp','--no-playlist','--retries','3','--fragment-retries','3','--socket-timeout','30','-f','bestvideo[height<=720]+bestaudio/best[height<=720]','--merge-output-format','mp4','--max-filesize','220M','-o',out,url]
+              try:
+                  cp=subprocess.run(cmd,capture_output=True,text=True,timeout=900)
+                  matched=[]
+                  for p in sorted(VID.glob(f'publisher_{i:02d}_*')):
+                      if p.suffix.lower() in ('.mp4','.webm','.mkv','.mov','.m4v'):
+                          matched.append(str(p)); record_video(p,url,url,'yt-dlp-publisher')
+                  vrows.append({'source_page':url,'asset_url':url,'status':'YTDLP_ATTEMPT','file':'|'.join(matched),'returncode':cp.returncode,'method':'yt-dlp-publisher','note':cp.stderr[-1400:]})
+              except Exception as e: vrows.append({'source_page':url,'asset_url':url,'status':'YTDLP_ERROR','method':'yt-dlp-publisher','note':repr(e)})
+
+          used_urls=set()
+          for i,(source,murl) in enumerate(page_media,1):
+              if murl in used_urls: continue
+              used_urls.add(murl); ext=Path(urlparse(murl).path).suffix.lower(); p=VID/f'direct_media_{i:03d}{ext if ext in (".mp4",".m4v",".mov") else ".mp4"}'
+              try:
+                  if '.m3u8' in murl.lower():
+                      cp=subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-i',murl,'-c','copy','-t','900',str(p)],capture_output=True,text=True,timeout=1200)
+                      if cp.returncode==0 and p.exists(): record_video(p,source,murl,'ffmpeg-hls')
+                      else: vrows.append({'source_page':source,'asset_url':murl,'status':'HLS_ERROR','file':'','method':'ffmpeg-hls','note':cp.stderr[-1200:]})
+                  else:
+                      r=get_retry(murl,attempts=3,delay=2)
+                      if hasattr(r,'status_code') and r.status_code==200 and len(r.content)>50000:
+                          p.write_bytes(r.content); record_video(p,source,murl,'direct-http')
+                      else: vrows.append({'source_page':source,'asset_url':murl,'status':f'HTTP_{getattr(r,"status_code","ERR")}','file':'','method':'direct-http'})
+              except Exception as e: vrows.append({'source_page':source,'asset_url':murl,'status':'MEDIA_ERROR','file':'','method':'direct','note':repr(e)})
+
+          def write_csv(p,data):
+              keys=[]
+              for r in data:
+                  for k in r:
+                      if k not in keys: keys.append(k)
+              with open(p,'w',encoding='utf-8-sig',newline='') as f:
+                  if keys:
+                      w=csv.DictWriter(f,fieldnames=keys); w.writeheader(); w.writerows(data)
+          write_csv(META/'image_records.csv',rows); write_csv(META/'video_records.csv',vrows); write_csv(META/'page_records.csv',page_rows)
+          summary={'saved_images':sum(r.get('status')=='SAVED' for r in rows),'image_duplicates':sum(r.get('status')=='SHA_DUPLICATE' for r in rows),'saved_videos':sum(r.get('status')=='SAVED_VIDEO' for r in vrows),'pages':len(pages),'commons_attempted':32,'generated_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())}
+          (META/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8'); print(json.dumps(summary,ensure_ascii=False,indent=2))
+          PY
+      - name: Upload retry artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hamaoka-media-retry
+          path: output_retry/
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 1
